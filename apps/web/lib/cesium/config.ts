@@ -1,6 +1,7 @@
 // Camera and motion settings for the globe. Heights are metres above the ellipsoid.
 
-export const START_VIEW = { lon: 2, lat: 8, height: 26_000_000 } as const;
+/** Centred south of the Sahel so West Africa (and its trend map) sits in the upper half, clear of the map card. */
+export const START_VIEW = { lon: 6, lat: -4, height: 26_000_000 } as const;
 export const GHANA_VIEW = { lon: -1.2, lat: 7.9, height: 600_000, pitchDeg: -45, durationS: 3 } as const;
 export const KUMASI_VIEW = { lon: -1.62, lat: 6.69, height: 30_000, pitchDeg: -45, durationS: 3 } as const;
 
@@ -13,10 +14,14 @@ export const SPIN = {
   minHeight: 4_000_000,
 } as const;
 
-/** Close-range Landsat layer fades in between these heights (hidden at the 600 km Ghana view). */
-export const CLOSE_FADE = { fullBelow: 120_000, hiddenAbove: 450_000, maxAlpha: 1 } as const;
+/**
+ * Sentinel-2 layer fades in between these heights. Above ~1,500 km Blue Marble (500 m) is sharp enough and
+ * keeps its ocean bathymetry; by the 600 km Ghana view Sentinel-2 (10 m) has fully taken over.
+ */
+export const CLOSE_FADE = { fullBelow: 800_000, hiddenAbove: 1_600_000, maxAlpha: 1 } as const;
 
-export const ZOOM_LIMITS = { min: 1_500, max: 40_000_000 } as const;
+/** Max ~150,000 km: far enough to pull back into space, see the Earth as a small blue disc and the planets around it. */
+export const ZOOM_LIMITS = { min: 1_500, max: 150_000_000 } as const;
 
 /**
  * Fixed sun position: 15:00 UTC today. Ghana (UTC+0) is in afternoon light and the day/night line,

@@ -12,11 +12,13 @@ export type UserLocation =
   | { status: "idle" | "off" | "locating" | "denied" | "unavailable" }
   | { status: "ok"; lon: number; lat: number; accuracyM: number };
 
-export function useUserLocation(): UserLocation {
+/** `enabled: false` holds the request (and its permission prompt) back, e.g. until the space intro ends. */
+export function useUserLocation(enabled = true): UserLocation {
   // Same initial state on server and client (no hydration mismatch); decided in the effect.
   const [loc, setLoc] = useState<UserLocation>({ status: "idle" });
 
   useEffect(() => {
+    if (!enabled) return;
     if (!env.autoLocate || !("geolocation" in navigator)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time capability check on mount
       setLoc({ status: "off" });
@@ -38,7 +40,7 @@ export function useUserLocation(): UserLocation {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   return loc;
 }

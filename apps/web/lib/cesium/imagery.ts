@@ -38,21 +38,6 @@ export const BLACK_MARBLE: GibsLayer = {
   credit: "NASA Black Marble (GIBS)",
 };
 
-/**
- * Close range: Landsat WELD true colour, cloud-free annual composite (~30 m, latest = 2000).
- * Chosen over VIIRS daily true colour, which at 375 m is blurry at city zoom and was partly cloudy over
- * Kumasi on every date sampled (Nov 2025 to Mar 2026). No-data (ocean) is black and keyed out in create-globe.ts.
- */
-export const LANDSAT_CLOSE: GibsLayer = {
-  id: "Landsat_WELD_CorrectedReflectance_TrueColor_Global_Annual",
-  format: "image/jpeg",
-  ext: "jpeg",
-  tileMatrixSet: "GoogleMapsCompatible_Level12",
-  maximumLevel: 12,
-  time: "2000-12-01",
-  credit: "NASA/USGS Landsat WELD true colour, 2000 composite (GIBS)",
-};
-
 export function gibsProvider(Cesium: CesiumModule, layer: GibsLayer) {
   const timePart = layer.time ? `${layer.time}/` : "";
   return new Cesium.WebMapTileServiceImageryProvider({
@@ -64,5 +49,27 @@ export function gibsProvider(Cesium: CesiumModule, layer: GibsLayer) {
     maximumLevel: layer.maximumLevel,
     tilingScheme: new Cesium.WebMercatorTilingScheme(),
     credit: new Cesium.Credit(layer.credit, true),
+  });
+}
+
+/**
+ * Regional and close range: Sentinel-2 cloudless 2024 mosaic by EOX (~10 m, cloud-free, colour-balanced).
+ * Chosen over GIBS Landsat WELD (2000, ~30 m, hazy and visibly seamed at city zoom) and daily VIIRS
+ * (375 m, cloudy over Kumasi). Licence CC BY-NC-SA 4.0: attribution is required and shown on the globe.
+ * Tiles are public with CORS; checked against https://tiles.maps.eox.at/wmts/1.0.0/WMTSCapabilities.xml.
+ */
+export function sentinel2Provider(Cesium: CesiumModule) {
+  return new Cesium.WebMapTileServiceImageryProvider({
+    url: "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{TileMatrix}/{TileRow}/{TileCol}.jpg",
+    layer: "s2cloudless-2024_3857",
+    style: "default",
+    format: "image/jpeg",
+    tileMatrixSetID: "g",
+    maximumLevel: 14, // native 10 m; deeper levels are upsampled, so let Cesium do that client-side
+    tilingScheme: new Cesium.WebMercatorTilingScheme(),
+    credit: new Cesium.Credit(
+      '<a href="https://s2maps.eu" target="_blank" rel="noreferrer">Sentinel-2 cloudless 2024 by EOX</a> (contains modified Copernicus Sentinel data 2024)',
+      true,
+    ),
   });
 }

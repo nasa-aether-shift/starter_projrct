@@ -1,6 +1,6 @@
 "use client";
 
-import { Table2, X } from "lucide-react";
+import { ChevronDown, Table2, X } from "lucide-react";
 import { useState } from "react";
 
 import { VariableIcon } from "@/components/variable-icon";
@@ -17,6 +17,8 @@ export function MapLegend({
   title,
   variableId,
   embedded = false,
+  onHide,
+  id,
 }: {
   map: TrendMap;
   scale: DivergingScale;
@@ -24,6 +26,9 @@ export function MapLegend({
   variableId?: string;
   /** Inside another panel: drop the legend's own glass chrome. */
   embedded?: boolean;
+  /** When given, a collapse button sits next to "Table" (the parent renders the collapsed state). */
+  onHide?: () => void;
+  id?: string;
 }) {
   const [table, setTable] = useState(false);
   const d = decimalsFor([scale.maxAbs]);
@@ -31,6 +36,7 @@ export function MapLegend({
   const units = formatUnits(map.units_per_decade.replace(/ per decade$/, ""));
   return (
     <div
+      id={id}
       className={`flex max-w-full flex-col gap-2 text-white ${
         embedded
           ? "w-full"
@@ -38,7 +44,7 @@ export function MapLegend({
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="flex items-center gap-2.5 font-semibold">
+        <p className="mr-auto flex items-center gap-2.5 font-semibold">
           {variableId ? <VariableIcon id={variableId} size="sm" /> : null}
           {title}
         </p>
@@ -51,6 +57,18 @@ export function MapLegend({
           {table ? <X aria-hidden className="size-4" /> : <Table2 aria-hidden className="size-4" />}
           {table ? "Close table" : "Table"}
         </button>
+        {onHide ? (
+          <button
+            type="button"
+            onClick={onHide}
+            aria-label={`Hide ${title.toLowerCase()} legend`}
+            aria-controls={id}
+            title="Hide"
+            className="-mr-1 grid size-8 shrink-0 place-items-center rounded-md text-white/60 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none"
+          >
+            <ChevronDown aria-hidden className="size-4" />
+          </button>
+        ) : null}
       </div>
       <p className="text-sm text-white/70">West Africa · change per decade{units ? ` (${units})` : ""}</p>
       <div

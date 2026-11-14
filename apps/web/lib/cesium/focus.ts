@@ -1,6 +1,6 @@
 // Visual focus on the place of interest, plus demarcation of the preset analysis areas.
 
-import type { Entity } from "cesium";
+import type { Cartesian2, Entity } from "cesium";
 
 import { prefersReducedMotion } from "@/lib/motion";
 import type { BBox } from "@/lib/region";
@@ -12,7 +12,15 @@ const FOCUS = "#7dd3fc"; // matches the chart anomaly colour / primary
 const YOU = "#4f8dff"; // "you are here": the familiar map-app blue, distinct from the selection colour
 
 export type FocusTarget =
-  | { kind: "point"; lon: number; lat: number; label: string; tone?: "focus" | "you" }
+  | {
+      kind: "point";
+      lon: number;
+      lat: number;
+      label: string;
+      tone?: "focus" | "you";
+      /** Show the label only while the pointer is over the pin. */
+      labelOnHover?: boolean;
+    }
   | { kind: "area"; ring: [number, number][]; label: string };
 
 export function bboxRing([w, s, e, n]: BBox): [number, number][] {
@@ -72,6 +80,56 @@ export function showFocus(globe: GlobeHandle, focus: FocusTarget): () => void {
     });
     cleanups.push(removeTick);
     const radius = () => r;
+    const pin = viewer.entities.add({
+      position: pos,
+      point: {
+        pixelSize: 14,
+        color: accent,
+        outlineColor: Cesium.Color.fromCssColorString("#0b1020"),
+        outlineWidth: 3,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+      // "You are here" sits below its pin so it never collides with place labels above.
+      label: {
+        ...(focus.tone === "you"
+          ? { ...labelGraphics(Cesium, focus.label, 16), verticalOrigin: Cesium.VerticalOrigin.TOP }
+          : labelGraphics(Cesium, focus.label, -16)),
+        show: !focus.labelOnHover,
+      },
+    });
+    if (focus.labelOnHover) {
+      const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+      let over = false;
+      // Screen-distance hit test instead of scene.pick: pick re-renders the scene into an offscreen
+      // buffer on every mouse move, which is the costliest thing a hover can do on a weak GPU.
+      const HIT_PX = 14;
+      const toCamera = new Cesium.Cartesian3();
+      const normal = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pos, new Cesium.Cartesian3());
+      handler.setInputAction((e: { endPosition: Cartesian2 }) => {
+        Cesium.Cartesian3.subtract(viewer.camera.positionWC, pos, toCamera);
+        const facing = Cesium.Cartesian3.dot(toCamera, normal) > 0; // not behind the Earth
+        const px = facing ? Cesium.SceneTransforms.worldToWindowCoordinates(viewer.scene, pos) : undefined;
+        const now = !!px && Cesium.Cartesian2.distance(px, e.endPosition) <= HIT_PX;
+        if (now === over) return;
+        over = now;
+        if (pin.label) pin.label.show = new Cesium.ConstantProperty(now);
+        viewer.canvas.style.cursor = now ? "pointer" : "";
+      }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+      // Pointer moved off the canvas (e.g. onto the hero text): MOUSE_MOVE stops firing, so hide here.
+      const canvas = viewer.canvas;
+      const leave = () => {
+        if (!over || viewer.isDestroyed()) return;
+        over = false;
+        if (pin.label) pin.label.show = new Cesium.ConstantProperty(false);
+        canvas.style.cursor = "";
+      };
+      canvas.addEventListener("pointerleave", leave);
+      cleanups.push(() => {
+        canvas.removeEventListener("pointerleave", leave);
+        if (!handler.isDestroyed()) handler.destroy();
+        if (over && !viewer.isDestroyed()) viewer.canvas.style.cursor = "";
+      });
+    }
     entities.push(
       viewer.entities.add({
         position: pos,
@@ -83,21 +141,7 @@ export function showFocus(globe: GlobeHandle, focus: FocusTarget): () => void {
           height: 0,
         },
       }),
-      viewer.entities.add({
-        position: pos,
-        point: {
-          pixelSize: 14,
-          color: accent,
-          outlineColor: Cesium.Color.fromCssColorString("#0b1020"),
-          outlineWidth: 3,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        },
-        // "You are here" sits below its pin so it never collides with place labels above.
-        label:
-          focus.tone === "you"
-            ? { ...labelGraphics(Cesium, focus.label, 16), verticalOrigin: Cesium.VerticalOrigin.TOP }
-            : labelGraphics(Cesium, focus.label, -16),
-      }),
+      pin,
     );
   } else {
     const flat = focus.ring.flat();

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { ErrorState, LoadingState } from "@/components/async-state";
 import { useRegionPresets } from "@/lib/api/hooks";
+import { env } from "@/lib/env";
 import { FEATURED_PRESETS, normaliseBox, type BBox, type RegionChoice } from "@/lib/region";
 import type { RegionPreset } from "@/lib/schemas";
 
@@ -44,31 +45,35 @@ function BoxInputs({ value, onChange }: { value: BBox | null; onChange: (b: BBox
 /** RegionPicker: preset regions (Kumasi, Ashanti, West Africa, …) or a drawn box. */
 export function RegionPicker({ value, onChange }: { value: RegionChoice | null; onChange: (r: RegionChoice) => void }) {
   const presets = useRegionPresets();
-  const [mode, setMode] = useState<"preset" | "box">(value?.kind === "bbox" ? "box" : "preset");
+  const [chosenMode, setMode] = useState<"preset" | "box">(value?.kind === "bbox" ? "box" : "preset");
+  // Drawn boxes stay hidden until POST /trend accepts a bbox (NEXT_PUBLIC_ENABLE_BOX=1).
+  const mode = env.enableBox ? chosenMode : "preset";
 
   return (
     <div className="flex flex-col gap-4">
-      <div role="tablist" aria-label="How to choose a place" className="flex gap-2">
-        {(
-          [
-            ["preset", "Choose a place", MapPin],
-            ["box", "Draw a box", SquareDashed],
-          ] as const
-        ).map(([m, label, Icon]) => (
-          <button
-            key={m}
-            type="button"
-            role="tab"
-            aria-selected={mode === m}
-            onClick={() => setMode(m)}
-            className={`flex items-center gap-2 rounded-lg border px-4 py-2 font-medium ${
-              mode === m ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground"
-            }`}
-          >
-            <Icon aria-hidden className="size-4" /> {label}
-          </button>
-        ))}
-      </div>
+      {env.enableBox ? (
+        <div role="tablist" aria-label="How to choose a place" className="flex gap-2">
+          {(
+            [
+              ["preset", "Choose a place", MapPin],
+              ["box", "Draw a box", SquareDashed],
+            ] as const
+          ).map(([m, label, Icon]) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={mode === m}
+              onClick={() => setMode(m)}
+              className={`flex items-center gap-2 rounded-lg border px-4 py-2 font-medium ${
+                mode === m ? "border-primary bg-primary/10 text-foreground" : "border-border text-muted-foreground"
+              }`}
+            >
+              <Icon aria-hidden className="size-4" /> {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {mode === "preset" ? (
         presets.isPending ? (
