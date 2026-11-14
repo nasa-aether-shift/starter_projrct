@@ -254,7 +254,7 @@ export function Wizard() {
                   id="question-suggestions"
                   role="listbox"
                   aria-label="Suggested questions"
-                  className="absolute top-full right-0 left-0 z-20 mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-panel p-2 shadow-xl"
+                  className="absolute top-full right-0 left-0 z-20 mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-popover p-2 shadow-xl"
                 >
                   {questionSuggestions.map((suggestion, index) => (
                     <button
