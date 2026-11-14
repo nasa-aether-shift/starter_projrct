@@ -29,25 +29,39 @@ def annual_cube(time: np.ndarray, cube: np.ndarray, min_months: int = 10) -> tup
     return uniq.astype(float), out
 
 
-def pixel_trends(years: np.ndarray, annual: np.ndarray, min_coverage: float = 0.75) -> dict[str, np.ndarray]:
-    """Sen slope (per decade) and Mann-Kendall p for every pixel. Vectorised over pixels."""
+def pixel_trends(
+    years: np.ndarray,
+    annual: np.ndarray,
+    min_coverage: float = 0.75,
+    chunk_size: int = 512,
+) -> dict[str, np.ndarray]:
+    """Sen slope (per decade) and Mann-Kendall p for every pixel in bounded-memory chunks."""
+    if isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size < 1:
+        raise ValueError("chunk_size must be a positive integer")
     n_t = annual.shape[0]
     flat = annual.reshape(n_t, -1)
-    valid = np.isfinite(flat)
-    cov = valid.mean(axis=0)
+    n_cells = flat.shape[1]
     i, j = np.triu_indices(n_t, k=1)
-    diff = flat[j] - flat[i]  # (pairs, pixels)
     dt = (years[j] - years[i])[:, None]
-    with np.errstate(invalid="ignore", all="ignore"):
-        slope = np.nanmedian(diff / dt, axis=0) * 10.0
-        s = np.nansum(np.sign(diff), axis=0)
-    n = valid.sum(axis=0).astype(float)
-    var = n * (n - 1) * (2 * n + 5) / 18.0
-    with np.errstate(invalid="ignore", divide="ignore"):
-        z = np.where(s > 0, (s - 1) / np.sqrt(var), np.where(s < 0, (s + 1) / np.sqrt(var), 0.0))
-    p = 2 * (1 - stats.norm.cdf(np.abs(z)))
-    bad = (cov < min_coverage) | (n < 8)
-    slope[bad], p[bad] = np.nan, np.nan
+    slope = np.full(n_cells, np.nan)
+    p = np.full(n_cells, np.nan)
+    cov = np.full(n_cells, np.nan)
+    for start in range(0, n_cells, chunk_size):
+        stop = min(start + chunk_size, n_cells)
+        block = flat[:, start:stop]
+        valid = np.isfinite(block)
+        cov[start:stop] = valid.mean(axis=0)
+        diff = block[j] - block[i]  # (pairs, chunk pixels)
+        with np.errstate(invalid="ignore", all="ignore"):
+            slope[start:stop] = np.nanmedian(diff / dt, axis=0) * 10.0
+            s = np.nansum(np.sign(diff), axis=0)
+        n = valid.sum(axis=0).astype(float)
+        var = n * (n - 1) * (2 * n + 5) / 18.0
+        with np.errstate(invalid="ignore", divide="ignore"):
+            z = np.where(s > 0, (s - 1) / np.sqrt(var), np.where(s < 0, (s + 1) / np.sqrt(var), 0.0))
+        p[start:stop] = 2 * (1 - stats.norm.cdf(np.abs(z)))
+        bad = (cov[start:stop] < min_coverage) | (n < 8)
+        slope[start:stop][bad], p[start:stop][bad] = np.nan, np.nan
     shape = annual.shape[1:]
     return {"slope_per_decade": slope.reshape(shape), "p": p.reshape(shape), "coverage": cov.reshape(shape)}
 

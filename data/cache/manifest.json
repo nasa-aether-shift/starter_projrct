@@ -14,6 +14,14 @@
     "processing_steps": [
       "Converted temperature from K to degC (subtract 273.15)."
     ],
-    "n_months": 252
+    "n_months": 252,
+    "source_urls": [
+      "https://giovanni.gsfc.nasa.gov/giovanni/?utm_source=chatgpt.com#service=ArAvTs&starttime=2005-01-01T00:00:00Z&endtime=2025-12-31T23:59:59Z&bbox=-1.8,6.55,-1.45,6.85&data=M2TMNXSLV_5_12_4_T2M&portal=GIOVANNI&format=json"
+    ],
+    "normalized_file": "data/raw/merra2_t2m__kumasi.csv",
+    "normalized_file_sha256": "add4b13e294679a2435655e8e62024fb09f68c6d5ca1c19b55eb82395181f25a",
+    "cache_sha256": "27c28716739465a85aa16e26aa4c38a9bff21cfc2dcecff44dfd99643e51c8aa",
+    "seed_horizon_sims": 1000,
+    "ingest_code_version": "0.1.0"
   }
 }
