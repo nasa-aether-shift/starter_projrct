@@ -30,10 +30,45 @@ def client(tmp_path, monkeypatch):
 
 
 def test_health_and_catalog(client):
-    assert client.get("/api/v1/health").json()["status"] == "ok"
+    health = client.get("/api/v1/health").json()
+    assert health["status"] == "ok"
+    assert health["missing_cache_files"] == []
     ids = {v["id"] for v in client.get("/api/v1/variables").json()}
     assert {"merra2_t2m", "gpm_precip", "modis_ndvi"} <= ids
     assert client.get("/api/v1/regions/presets").json()["features"]
+
+
+def test_health_lists_missing_required_cache_file(client, tmp_path):
+    (tmp_path / "results" / "merra2_t2m__kumasi.json").unlink()
+    response = client.get("/api/v1/health")
+    assert response.status_code == 200
+    assert response.json()["missing_cache_files"] == ["data/cache/results/merra2_t2m__kumasi.json"]
+
+
+def test_production_startup_rejects_fixtures(monkeypatch):
+    monkeypatch.setattr(m, "APP_ENV", "production")
+    monkeypatch.setattr(m, "USE_FIXTURES", True)
+    with pytest.raises(RuntimeError, match="USE_FIXTURES=0"):
+        with TestClient(m.app):
+            pass
+
+
+def test_real_mode_does_not_serve_fixture_for_uncached_trend_or_point(client, monkeypatch):
+    monkeypatch.setattr(m, "USE_FIXTURES", False)
+    trend = client.post("/api/v1/trend", json={"variable_id": "gpm_precip", "region_id": "kumasi"})
+    point = client.post("/api/v1/trend-at-point", json={
+        "variable_id": "gpm_precip", "region_id": "west_africa", "lat": 6.7, "lon": -1.6,
+    })
+    assert trend.status_code == 404
+    assert point.status_code == 404
+    assert "fixture" not in trend.text.lower()
+    assert "fixture" not in point.text.lower()
+
+
+def test_real_mode_does_not_resolve_legacy_fixture_run(client, monkeypatch):
+    monkeypatch.setattr(m, "USE_FIXTURES", False)
+    response = client.get("/api/v1/runs/fixture-grade-a")
+    assert response.status_code == 404
 
 
 def test_trend_contract_and_narrative(client):
