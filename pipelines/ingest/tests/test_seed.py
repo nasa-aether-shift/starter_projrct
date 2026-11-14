@@ -121,3 +121,26 @@ def test_seed_maps_reports_absent_grids_without_fabricating_output(layout):
     metrics = seed.seed_maps()
     assert metrics["map_count"] == 0
     assert not list((cache / "maps").glob("*.json"))
+
+
+def test_seed_manifest_bytes_do_not_depend_on_the_os(layout, monkeypatch):
+    root, raw, cache = layout
+    normalized = raw / "synthetic_variable__synthetic_region.csv"
+    normalized.write_bytes(b"time,value\r\n2000-01,1.0\r\n")
+    source = raw / "synthetic_original.csv"
+    source.write_bytes(b"SYNTHETIC TEST INPUT\n")
+    entry = {
+        "source": "https://example.invalid/synthetic-test-source",
+        "file": str(source.relative_to(root)),
+        "sha256": sha256(source),
+        "retrieval_date": "2026-01-02",
+        "code_version": "synthetic-test",
+    }
+    (cache / "manifest.json").write_bytes(json.dumps({"synthetic_variable__synthetic_region": entry}).encode())
+    monkeypatch.setattr(seed, "analyze_series", lambda series, **kwargs: {"synthetic_test_result": True})
+
+    seed.seed_series(horizon_sims=0)
+
+    assert b"\r\n" not in (cache / "manifest.json").read_bytes()
+    recorded = json.loads((cache / "manifest.json").read_text())["synthetic_variable__synthetic_region"]
+    assert "\\" not in recorded["normalized_file"] + recorded["cache_file"]  # forward slashes on every OS

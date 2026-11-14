@@ -118,3 +118,22 @@ The checks confirm there is no usable map cache in the repository. `GET /health`
 - `make seed` initially failed because system `python3` has no NumPy installed; direct user-site installation was blocked by the OS's externally-managed Python policy. Installed the already-declared runtime dependencies NumPy, SciPy, and PyYAML in the isolated persistent environment `$HOME/.venvs/earth-data-detective`. `PATH=$HOME/.venvs/earth-data-detective/bin:$PATH make seed` succeeded, rebuilding the regional series in **22.72 seconds** at **102,838,272 bytes** peak RSS and reporting no gridded inputs. System Python remains unchanged. No Makefile or project dependency-manifest edits were made.
 - Tests: `/tmp/edd-b1-venv/bin/python -m pytest -q pipelines/ingest/tests/test_seed.py packages/stats_engine/tests/test_pixel_chunks.py` — **5 passed**; `/tmp/edd-b1-venv/bin/python -m pytest -q pipelines/ingest/tests/test_seed.py pipelines/ingest/tests/test_giovanni.py` — **19 passed**; API suite from `apps/api/` — **32 passed**, one Starlette/httpx deprecation warning. Touched Python files compiled successfully; local real-cache POST `/api/v1/trend` returned **200**, units `degC`, 252 months.
 - Full stats-engine suite was not run: its existing `test_validation.py` cannot be collected in the available environment because `pymannkendall` is absent. The isolated chunk-equivalence test passed. No project dependency was added.
+
+## T1 — provenance cleanup, plain-language errors and Windows portability (2026-11-14)
+
+- Provenance: the Giovanni importer now drops link-tracking query parameters (`utm_*`, `fbclid`, `gclid`) from source URLs and keeps the rest of the link, including Giovanni's `#service=…` fragment (`pipelines/ingest/giovanni.py`). The Kumasi temperature manifest was rebuilt from the retained original export (SHA-256 `fc92e4f5…`, unchanged), so `source`/`source_urls` no longer contain `utm_source=chatgpt.com`. The result JSON and `data/raw` files are byte-identical to the previous commit; no scientific value changed.
+- Catalog: `data/catalog/merra2_t2m.yaml` version set to `5.12.4`, already recorded in `docs/VERIFIED.md` from the NASA DOI landing page. GPM and MODIS versions stay `<verify in CMR>`.
+- Errors: missing-data 404s from `/trend`, `/trend-at-point`, `/trend-map` and `/opposite-trends` now have the title "Not available yet" and a sentence that names the variable and place, instead of developer hints (`make seed`, cache file names). Status codes and the `{"detail": {type, title, detail}}` shape are unchanged; the web does not match on these strings.
+- Verdict wording: the template prints `°C` instead of `degC` and `0.00` instead of `-0.00` (`apps/api/app/ai.py`). The numeric guard still accepts the template text.
+- Windows portability (the build laptop runs Windows):
+  - `seed.py` imported the Unix-only `resource` module, so `make seed` could not run on Windows. Peak memory now uses the Win32 API through `ctypes` on Windows; no dependency was added.
+  - Pipeline outputs are written with `newline=""` and manifest paths with forward slashes, so checksummed files are byte-identical on Windows and Linux (CI and Render).
+  - A new root `.gitattributes` marks `data/raw/**` and `data/cache/**` as `-text`. Windows checkouts with `core.autocrlf=true` had rewritten line endings, so the retained Giovanni CSV failed seed's own checksum check.
+  - `/health` reports `missing_cache_files` with forward slashes.
+- Tests (written failing first, then fixed). Run on Windows, Python 3.14, 2026-11-14:
+  - `cd apps/api && python -m pytest -q`: **35 passed**.
+  - `python -m pytest -q pipelines/ingest/tests`: **23 passed**.
+  - `cd packages/stats_engine && python -m pytest -q tests/test_pixel_chunks.py`: **1 passed**.
+  - `test_validation.py` was not run here because `pymannkendall` is not installed locally; CI installs it and runs it.
+- Live check: `USE_FIXTURES=0` API, `POST /trend` for merra2_t2m/kumasi returned 200 with version 5.12.4 and no tracking parameter in provenance; rainfall, map and map-click requests returned 404 "Not available yet" with plain sentences.
+- Seed on Windows: rebuilt 1 regional series in about 4.6 s, peak about 102 MB. No gridded input exists, so no map or point grid was produced or fabricated.

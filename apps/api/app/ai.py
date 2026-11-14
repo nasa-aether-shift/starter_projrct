@@ -19,14 +19,20 @@ log = logging.getLogger("edd.ai")
 _NUM = re.compile(r"[-+−]?\d+(?:[.,]\d+)?")
 
 
+_UNIT_LABELS = {"degC": "°C"}  # display labels for catalog unit codes
+
+
 def _fmt(v: float | None, nd: int = 2) -> str:
-    return "n/a" if v is None else f"{v:+.{nd}f}"
+    if v is None:
+        return "n/a"
+    text = f"{v:+.{nd}f}"
+    return text[1:] if float(text) == 0 else text  # "-0.00" and "+0.00" read as "0.00"
 
 
 def verdict_template(result: dict[str, Any], variable: dict[str, Any], region_name: str) -> dict[str, str]:
     """Deterministic what / where / how much / significant sentences (English)."""
     tr, tests, g = result["trend"], result["tests"], result["evidence_grade"]
-    units = variable.get("units", "")
+    units = _UNIT_LABELS.get(variable.get("units", ""), variable.get("units", ""))
     name = variable.get("name", {}).get("en", variable.get("id", "the variable"))
     p = tests["modified_mk"]["p"]
     period = f"{result['period']['start'][:4]}–{result['period']['end'][:4]}"

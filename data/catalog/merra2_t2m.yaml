@@ -5,7 +5,7 @@ definition:
   student: {en: Monthly average air temperature 2 metres above the ground, in degrees Celsius.}
   scientist: {en: 2 m air temperature (T2M) from the MERRA-2 reanalysis, monthly mean.}
 units: degC
-source: {collection: M2TMNXSLV, version: "<verify in CMR>", variable: T2M, provider: NASA GMAO}
+source: {collection: M2TMNXSLV, version: "5.12.4", variable: T2M, provider: NASA GMAO}  # verified, see docs/VERIFIED.md
 resolution: {spatial_deg: "0.5 x 0.625", temporal: monthly}
 coverage: {start: 1980-01, end: "<latest>"}
 qa: {min_valid_fraction: 0.75, convert: "K -> degC (subtract 273.15)"}

@@ -85,6 +85,16 @@ def problem(status: int, title: str, detail: str) -> HTTPException:
     return HTTPException(status_code=status, detail={"type": "about:blank", "title": title, "detail": detail})
 
 
+def _not_available(detail: str) -> HTTPException:
+    """404 for data that has not been prepared yet, worded for the people using the app."""
+    return problem(404, "Not available yet", detail)
+
+
+def _region_label(region_id: str) -> str:
+    region = REGION_BY_ID.get(region_id)
+    return region["properties"]["name"] if region else "this region"
+
+
 def _variable(vid: str) -> dict[str, Any]:
     if vid not in CATALOG:
         raise problem(404, "Unknown variable", f"No variable '{vid}'. See GET /api/v1/variables.")
@@ -201,7 +211,7 @@ def _finish(
 def health() -> dict[str, Any]:
     results = sorted(p.stem for p in (CACHE / "results").glob("*.json")) if (CACHE / "results").exists() else []
     missing = [
-        str(Path("data/cache") / relative_path)
+        (Path("data/cache") / relative_path).as_posix()  # same on Windows and Linux
         for relative_path in REQUIRED_CACHE_FILES
         if not (CACHE / relative_path).is_file()
     ]
@@ -305,7 +315,7 @@ def _select_grid(variable_id: str, region_id: str | None, bbox: tuple[float, flo
             raise problem(404, "Unknown region", f"No preset or cached-grid region '{region_id}'.")
         path = grid_dir / f"{variable_id}__{region_id}.npz"
         if not path.is_file():
-            raise problem(404, "Grid not cached", f"No grid for {path.stem}.")
+            raise _not_available(f"Custom areas for {CATALOG[variable_id]['name']['en']} are not available yet. Try a preset place instead.")
         with np.load(path) as grid:
             if not _bbox_covered_by_grid(bbox, grid["lat"], grid["lon"]):
                 raise problem(422, "Outside cached coverage", "The bbox is not fully inside this cached grid's coverage.")
@@ -313,7 +323,7 @@ def _select_grid(variable_id: str, region_id: str | None, bbox: tuple[float, flo
 
     candidates = sorted(grid_dir.glob(f"{variable_id}__*.npz")) if grid_dir.exists() else []
     if not candidates:
-        raise problem(404, "Grid not cached", f"No cached grid exists for variable '{variable_id}'.")
+        raise _not_available(f"Custom areas for {CATALOG[variable_id]['name']['en']} are not available yet. Try a preset place instead.")
     overlapping: list[tuple[bool, float, str, Path]] = []
     for path in candidates:
         with np.load(path) as grid:
@@ -337,7 +347,7 @@ def _bbox_geometry(bbox: tuple[float, float, float, float]) -> dict[str, Any]:
 
 def _cache_relative_path(path: Path) -> str:
     try:
-        return str(path.resolve().relative_to(ROOT.resolve()))
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
     except ValueError:
         return path.name
 
@@ -402,7 +412,9 @@ def trend(req: TrendRequest) -> dict[str, Any]:
         fx = json.loads(FIXTURE.read_text())
         RUNS[fx["run_id"]] = fx
         return fx
-    raise problem(404, "Not cached yet", f"No cached result for {path.stem}. Run `make seed` after ingesting data.")
+    raise _not_available(
+        f"{var['name']['en']} results for {region['properties']['name']} have not been prepared yet. Try another variable or place."
+    )
 
 
 @app.post("/api/v1/trend-at-point")
@@ -412,7 +424,7 @@ def trend_at_point(req: PointRequest) -> dict[str, Any]:
     if not path.exists():
         if USE_FIXTURES and FIXTURE.exists():
             return json.loads(FIXTURE.read_text())
-        raise problem(404, "Grid not cached", f"No grid for {path.stem}. Run the earthaccess ingest, then `make seed`.")
+        raise _not_available(f"Map clicks for {var['name']['en']} are not available yet. Try a preset place instead.")
     g = np.load(path)
     lat, lon = g["lat"], g["lon"]
     if not (lat.min() <= req.lat <= lat.max() and lon.min() <= req.lon <= lon.max()):
@@ -458,10 +470,10 @@ def _resolve_run(run_id: str) -> dict[str, Any]:
 
 @app.get("/api/v1/trend-map/{vid}/{region_id}")
 def trend_map(vid: str, region_id: str) -> dict[str, Any]:
-    _variable(vid)
+    var = _variable(vid)
     path = CACHE / "maps" / f"{vid}__{region_id}.json"
     if not path.exists():
-        raise problem(404, "Map not cached", f"Run `make seed` to build {path.stem}.")
+        raise _not_available(f"The {var['name']['en']} trend map for {_region_label(region_id)} is not available yet.")
     data = json.loads(path.read_text())
     data.pop("opposite_trends", None)
     data["palette_polarity"] = CATALOG[vid]["palette_polarity"]
@@ -471,10 +483,10 @@ def trend_map(vid: str, region_id: str) -> dict[str, Any]:
 
 @app.get("/api/v1/opposite-trends/{vid}/{region_id}")
 def opposite(vid: str, region_id: str) -> dict[str, Any]:
-    _variable(vid)
+    var = _variable(vid)
     path = CACHE / "maps" / f"{vid}__{region_id}.json"
     if not path.exists():
-        raise problem(404, "Map not cached", f"Run `make seed` to build {path.stem}.")
+        raise _not_available(f"Opposite-trend results for {var['name']['en']} in {_region_label(region_id)} are not available yet.")
     return json.loads(path.read_text())["opposite_trends"]
 
 
