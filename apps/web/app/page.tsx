@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 // Landing: full-screen realistic Earth with the trend map painted on it, variable switcher and legend.
 export default function Home() {
   return (
-    <div className="relative isolate flex min-h-[calc(100dvh-4rem)] flex-1 overflow-hidden bg-black">
+    <div className="relative isolate flex min-h-[30rem] flex-1 overflow-hidden bg-black">
       <LandingGlobe />
       {/* Scrim so text stays readable over bright desert; pointer-events pass through to the globe. */}
       <div
