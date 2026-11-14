@@ -15,7 +15,8 @@ export default function Home() {
         className="pointer-events-none absolute inset-0 -z-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent"
       />
       <div className="pointer-events-none relative mx-auto flex w-full max-w-7xl items-center px-4 py-16 sm:px-6">
-        <div className="pointer-events-auto flex max-w-2xl flex-col gap-6">
+        {/* lg:max-w-xl keeps the text clear of the "Map layer" card at the bottom right on laptop screens. */}
+        <div className="pointer-events-auto flex max-w-2xl flex-col gap-6 lg:max-w-xl">
           <p className="text-sm font-semibold tracking-[0.2em] text-primary uppercase">NASA Space Apps · Kumasi</p>
           <h1 className="text-4xl leading-tight font-bold tracking-tight text-balance text-white sm:text-6xl">
             Is this place really changing?

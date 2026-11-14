@@ -19,6 +19,8 @@ export interface GlobeHandle {
   overlayIndex: number;
   /** Enable/disable the idle spin (it also pauses itself during user input). */
   setSpin: (on: boolean) => void;
+  /** Cap the render rate, e.g. while the space intro plays over the globe; undefined = the display's rate. */
+  setFrameRate: (fps: number | undefined) => void;
   destroy: () => void;
 }
 
@@ -136,6 +138,10 @@ export function createGlobe(Cesium: CesiumModule, container: HTMLElement, opts: 
     overlayIndex,
     setSpin: (on) => {
       spinOn = on && !prefersReducedMotion();
+    },
+    setFrameRate: (fps) => {
+      // Cesium documents undefined as "no cap", but types targetFrameRate as number.
+      (viewer as { targetFrameRate?: number }).targetFrameRate = fps;
     },
     destroy: () => {
       perf.destroy();
