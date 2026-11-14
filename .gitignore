@@ -1,0 +1,10 @@
+.env
+.env.local
+__pycache__/
+.pytest_cache/
+node_modules/
+.next/
+# raw NASA downloads are large; keep them out of git
+data/raw/
+# grids can be large: commit only if under ~50 MB, else ship via the deploy step
+data/cache/grids/*.npz

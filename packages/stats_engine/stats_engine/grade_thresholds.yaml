@@ -1,0 +1,12 @@
+# Evidence grade thresholds (team doc, Section 5). Change only with STATS sign-off.
+A:
+  p_max: 0.01          # modified Mann-Kendall
+  years_min: 20
+  coverage_min: 0.90
+  robust_p_max: 0.05   # annual means and seasonal MK must also be p < 0.05, same direction
+B:
+  p_max: 0.05
+  years_min: 15
+  coverage_min: 0.80
+C:
+  p_max: 0.10
