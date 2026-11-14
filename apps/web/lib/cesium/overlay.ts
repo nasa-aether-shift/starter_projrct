@@ -4,6 +4,9 @@
 // milder ones fade out, so the footprint follows the hotspots instead of the data rectangle. Missing
 // cells (ocean) and the grid border fade smoothly. A light glow sits under the crisp layer.
 // FDR-significant cells get subtle stipple dots at regional zoom. Everything fades with camera height.
+// From far away (whole-globe views) a second "beacon" texture takes over: a lower visibility threshold,
+// brighter colour and a wide glow, so the region's hotspots read at a glance from space. It cross-fades
+// to the detailed layer as the camera comes down.
 
 import type { ImageryLayer, PointPrimitiveCollection } from "cesium";
 
@@ -14,11 +17,42 @@ import type { GlobeHandle } from "./create-globe";
 
 /** Layer opacity by camera height: full from space, slightly softer regionally, gone near the ground. */
 const FADE = { hiddenBelow: 60_000, regionalAt: 250_000, spaceAbove: 3_000_000, regional: 0.85, space: 1 } as const;
+/** Detailed → beacon cross-fade by camera height. */
+const BEACON = { startAbove: 3_500_000, fullAbove: 9_000_000 } as const;
+
+interface PaintStyle {
+  /** Remaps the scale's visibility ramp: alpha' = min(1, floor + gain · alpha). */
+  floor: number;
+  gain: number;
+  /** Glow blur radius (output px) and strength under the crisp layer. */
+  glowBlur: number;
+  glowAlpha: number;
+  /**
+   * Colour punch baked into the texture (not ImageryLayer.saturation/contrast: those add globe shader
+   * variants, which cost a shader compile and per-pixel work on every tile they touch).
+   */
+  saturation: number;
+  contrast: number;
+}
+const DETAIL: PaintStyle = {
+  floor: 0,
+  gain: 1,
+  glowBlur: Math.round(12 * 0.8),
+  glowAlpha: 0.45,
+  saturation: 1.3,
+  contrast: 1,
+};
+/**
+ * Far view: everything above the map's median change is fully opaque (`gain` 2.2 saturates the ramp
+ * halfway up) and a faint wash marks milder change, so the footprint is solid, with a halo three cells wide.
+ */
+// Punchier colour cuts through the ground-atmosphere haze over the disc seen from space.
+const FAR: PaintStyle = { floor: 0.18, gain: 2.2, glowBlur: 36, glowAlpha: 1, saturation: 1.8, contrast: 1.25 };
 /** Stipple dots only at regional zoom, where individual cells are big enough to read. */
 const DOTS = { showBelow: 3_500_000, hideBelow: 60_000 } as const;
 
-/** Transparent margin (cells) around the grid. */
-const PAD = 2;
+/** Transparent margin (cells) around the grid: room for the far view's halo to fade out. */
+const PAD = 4;
 /**
  * Rounded falloff over the data area (superellipse |u|^n + |v|^n): full inside, fading to zero at the
  * border, so the footprint has no straight edges or corners even where data run up to the grid limit.
@@ -50,20 +84,27 @@ const smooth01 = (x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-function buildLut(scale: DivergingScale): Uint8ClampedArray {
+function buildLut(scale: DivergingScale, style: PaintStyle): Uint8ClampedArray {
   const lut = new Uint8ClampedArray(LUT_SIZE * 3);
   for (let k = 0; k < LUT_SIZE; k++) {
     const v = -scale.maxAbs + (2 * scale.maxAbs * k) / (LUT_SIZE - 1);
     const m = RGB.exec(scale.color(v));
     if (!m) continue;
-    lut[k * 3] = Number(m[1]);
-    lut[k * 3 + 1] = Number(m[2]);
-    lut[k * 3 + 2] = Number(m[3]);
+    const rgb = [Number(m[1]), Number(m[2]), Number(m[3])];
+    const lum = 0.2126 * rgb[0]! + 0.7152 * rgb[1]! + 0.0722 * rgb[2]!;
+    for (let c = 0; c < 3; c++) {
+      const sat = lum + (rgb[c]! - lum) * style.saturation;
+      lut[k * 3 + c] = (sat - 127.5) * style.contrast + 127.5; // Uint8ClampedArray clamps to 0–255
+    }
   }
   return lut;
 }
 
-function paint(map: TrendMap, scale: DivergingScale): { url: string; width: number; height: number } {
+function paint(
+  map: TrendMap,
+  scale: DivergingScale,
+  style: PaintStyle,
+): { url: string; width: number; height: number } {
   const rows = map.grid.lat.length;
   const cols = map.grid.lon.length;
   const gw = cols + 2 * PAD;
@@ -111,7 +152,7 @@ function paint(map: TrendMap, scale: DivergingScale): { url: string; width: numb
       val[k] = sum / n;
     }
 
-  const lut = buildLut(scale);
+  const lut = buildLut(scale, style);
   const W = gw * SCALE;
   const H = gh * SCALE;
   const out = new ImageData(W, H);
@@ -145,7 +186,8 @@ function paint(map: TrendMap, scale: DivergingScale): { url: string; width: numb
       }
       if (ws <= 0) continue;
       const v = vs / ws;
-      const a = scale.alpha(v) * smooth01(cover * 1.6);
+      const base = scale.alpha(v);
+      const a = Math.min(1, base > 0 ? style.floor + style.gain * base : 0) * smooth01(cover * 1.6);
       if (a <= 0.004) continue;
       const li = Math.round(((Math.max(-1, Math.min(1, v / scale.maxAbs)) + 1) / 2) * (LUT_SIZE - 1)) * 3;
       const o = (y * W + x) * 4;
@@ -168,9 +210,10 @@ function paint(map: TrendMap, scale: DivergingScale): { url: string; width: numb
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas unavailable");
   if ("filter" in ctx) {
-    ctx.filter = `blur(${Math.round(SCALE * 0.8)}px)`;
-    ctx.globalAlpha = 0.45;
+    ctx.filter = `blur(${style.glowBlur}px)`;
+    ctx.globalAlpha = style.glowAlpha;
     ctx.drawImage(crisp, 0, 0);
+    if (style.glowAlpha >= 1) ctx.drawImage(crisp, 0, 0); // double pass: a denser halo for the far view
     ctx.filter = "none";
     ctx.globalAlpha = 1;
   }
@@ -182,17 +225,20 @@ function paint(map: TrendMap, scale: DivergingScale): { url: string; width: numb
 export function addTrendOverlay(globe: GlobeHandle, map: TrendMap, scale: DivergingScale): () => void {
   const { Cesium, viewer } = globe;
   const r = paddedRect(map);
-  const tex = paint(map, scale);
-  const provider = new Cesium.SingleTileImageryProvider({
-    url: tex.url,
-    rectangle: Cesium.Rectangle.fromDegrees(r.west, r.south, r.east, r.north),
-    tileWidth: tex.width,
-    tileHeight: tex.height,
-  });
-  // Directly above the photo layers; vector borders and labels draw on top of it.
-  const layer: ImageryLayer = viewer.imageryLayers.addImageryProvider(provider, globe.overlayIndex);
-  layer.alpha = FADE.space;
-  layer.saturation = 1.3; // extra punch so hotspots stand out against the photo
+  const rectangle = Cesium.Rectangle.fromDegrees(r.west, r.south, r.east, r.north);
+  const addLayer = (style: PaintStyle, index: number): ImageryLayer => {
+    const tex = paint(map, scale, style);
+    const provider = new Cesium.SingleTileImageryProvider({
+      url: tex.url,
+      rectangle,
+      tileWidth: tex.width,
+      tileHeight: tex.height,
+    });
+    // Directly above the photo layers; vector borders and labels draw on top of it.
+    return viewer.imageryLayers.addImageryProvider(provider, index);
+  };
+  const layer = addLayer(DETAIL, globe.overlayIndex);
+  const beacon = addLayer(FAR, globe.overlayIndex + 1);
 
   const dots: PointPrimitiveCollection = viewer.scene.primitives.add(new Cesium.PointPrimitiveCollection());
   const dotColor = Cesium.Color.WHITE.withAlpha(0.6);
@@ -207,20 +253,24 @@ export function addTrendOverlay(globe: GlobeHandle, map: TrendMap, scale: Diverg
     }),
   );
 
+  const clamp = (x: number) => Math.min(1, Math.max(0, x));
   const removeFade = viewer.scene.preRender.addEventListener(() => {
     const h = viewer.camera.positionCartographic.height;
-    const clamp = (x: number) => Math.min(1, Math.max(0, x));
     const ground = clamp((h - FADE.hiddenBelow) / (FADE.regionalAt - FADE.hiddenBelow));
     const space = clamp((h - FADE.regionalAt) / (FADE.spaceAbove - FADE.regionalAt));
     const t = ground * (FADE.regional + (FADE.space - FADE.regional) * space);
-    layer.alpha = t;
-    layer.show = t > 0.01;
+    const far = smooth01((h - BEACON.startAbove) / (BEACON.fullAbove - BEACON.startAbove));
+    layer.alpha = t * (1 - far);
+    layer.show = layer.alpha > 0.01;
+    beacon.alpha = t * far;
+    beacon.show = beacon.alpha > 0.01;
     dots.show = h < DOTS.showBelow && h > DOTS.hideBelow;
   });
 
   return () => {
     removeFade();
     if (viewer.isDestroyed()) return;
+    viewer.imageryLayers.remove(beacon, true);
     viewer.imageryLayers.remove(layer, true);
     viewer.scene.primitives.remove(dots);
   };

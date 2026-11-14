@@ -195,8 +195,8 @@ export default function MethodPage() {
             Saturates over dense forest.
           </li>
           <li>
-            <strong>Globe imagery</strong>: NASA GIBS (Blue Marble, Black Marble, Landsat WELD). Imagery only; no
-            statistics are computed from it.
+            <strong>Globe imagery</strong>: NASA GIBS (Blue Marble, Black Marble) and Sentinel-2 cloudless 2024 by EOX
+            (Copernicus data) when zoomed in. Imagery only; no statistics are computed from it.
           </li>
         </ul>
         <p className="text-muted-foreground">

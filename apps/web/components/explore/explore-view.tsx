@@ -1,12 +1,14 @@
 "use client";
 
-import { Globe2, LocateFixed, MapPin, MousePointerClick, SquareDashed } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, ChevronUp, Globe2, LocateFixed, MapPin, MousePointerClick, SquareDashed } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Globe } from "@/components/globe/globe";
 import { GlobeHoverTooltip, useBoundaryLayer } from "@/components/globe/globe-hover";
 import { MapLegend } from "@/components/globe/map-legend";
+import { VariableIcon } from "@/components/variable-icon";
 import { useTrendOverlay } from "@/components/globe/use-trend-overlay";
 import {
   MAP_VARIABLES,
@@ -68,6 +70,8 @@ export function ExploreView() {
   const [globe, setGlobe] = useState<GlobeHandle | null>(null);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [drawing, setDrawing] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(true);
+  const [legendOpen, setLegendOpen] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const point = useTrendAtPoint();
   const trend = useRunTrend();
@@ -272,7 +276,7 @@ export function ExploreView() {
   const label = MAP_VARIABLES.find((m) => m.id === variable)?.label ?? "";
 
   return (
-    <div className="relative isolate flex min-h-[calc(100dvh-4rem)] flex-1 overflow-hidden bg-black">
+    <div className="relative isolate flex min-h-[30rem] flex-1 overflow-hidden bg-black">
       <div className="absolute inset-0 -z-10">
         <Globe spin={false} onReady={setGlobe} />
         <GlobeHoverTooltip
@@ -285,50 +289,133 @@ export function ExploreView() {
       </div>
 
       <div className="no-print absolute top-4 left-4 z-10 flex max-w-[24rem] flex-col gap-3 sm:top-6 sm:left-6">
-        <div className="flex flex-col gap-3 rounded-xl border border-white/15 bg-black/70 p-4 text-white backdrop-blur">
-          <h1 className="text-xl font-bold">Explore the globe</h1>
-          <VariableSwitcher value={variable} onChange={setVariable} layout="stacked" />
-          <p className="flex items-start gap-2 text-sm text-white/80">
-            <MousePointerClick aria-hidden className="mt-0.5 size-4 shrink-0" />
-            Click anywhere in the coloured grid to test that spot, or pick a place:
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {PLACES.map((p) => (
-              <Button key={p.id} variant="secondary" onClick={() => goPlace(p)}>
-                <MapPin aria-hidden /> {p.label}
-              </Button>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={drawing ? "default" : "outline"}
-              aria-pressed={drawing}
-              disabled={!globe}
-              onClick={() => setDrawing((d) => !d)}
-              className="border-white/30 bg-transparent text-white"
+        <AnimatePresence initial={false} mode="wait">
+          {controlsOpen ? (
+            <motion.div
+              key="panel"
+              id="explore-controls"
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.2 }}
+              className="flex flex-col gap-3 rounded-xl border border-white/15 bg-black/70 p-4 text-white backdrop-blur"
             >
-              <SquareDashed aria-hidden /> {drawing ? "Drag on the globe…" : "Draw a box"}
-            </Button>
-            <Button variant="outline" onClick={backToGlobe} className="border-white/30 bg-transparent text-white">
-              <Globe2 aria-hidden /> Back to globe
-            </Button>
-            {here.status === "ok" ? (
-              <Button variant="outline" onClick={goToMe} className="border-white/30 bg-transparent text-white">
-                <LocateFixed aria-hidden /> My location
-              </Button>
-            ) : null}
-          </div>
-          {notice ? (
-            <p role="status" className="rounded-md bg-warning/20 px-3 py-2 text-sm">
-              {notice}
-            </p>
-          ) : null}
-        </div>
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-xl font-bold">Explore the globe</h1>
+                <button
+                  type="button"
+                  onClick={() => setControlsOpen(false)}
+                  aria-label="Hide explore controls"
+                  aria-controls="explore-controls"
+                  title="Hide"
+                  className="-mr-1 grid size-8 shrink-0 place-items-center rounded-md text-white/60 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none"
+                >
+                  <ChevronUp aria-hidden className="size-4" />
+                </button>
+              </div>
+              <VariableSwitcher value={variable} onChange={setVariable} layout="stacked" />
+              <p className="flex items-start gap-2 text-sm text-white/80">
+                <MousePointerClick aria-hidden className="mt-0.5 size-4 shrink-0" />
+                Click anywhere in the coloured grid to test that spot, or pick a place:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {PLACES.map((p) => (
+                  <Button key={p.id} variant="secondary" onClick={() => goPlace(p)}>
+                    <MapPin aria-hidden /> {p.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={drawing ? "default" : "outline"}
+                  aria-pressed={drawing}
+                  disabled={!globe}
+                  onClick={() => setDrawing((d) => !d)}
+                  className="border-white/30 bg-transparent text-white"
+                >
+                  <SquareDashed aria-hidden /> {drawing ? "Drag on the globe…" : "Draw a box"}
+                </Button>
+                <Button variant="outline" onClick={backToGlobe} className="border-white/30 bg-transparent text-white">
+                  <Globe2 aria-hidden /> Back to globe
+                </Button>
+                {here.status === "ok" ? (
+                  <Button variant="outline" onClick={goToMe} className="border-white/30 bg-transparent text-white">
+                    <LocateFixed aria-hidden /> My location
+                  </Button>
+                ) : null}
+              </div>
+              {notice ? (
+                <p role="status" className="rounded-md bg-warning/20 px-3 py-2 text-sm">
+                  {notice}
+                </p>
+              ) : null}
+            </motion.div>
+          ) : (
+            <motion.h1
+              key="pill"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18 }}
+            >
+              <button
+                type="button"
+                onClick={() => setControlsOpen(true)}
+                aria-label="Explore the globe: show controls"
+                className="flex items-center gap-2 rounded-full border border-white/15 bg-black/70 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-black/80 focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none"
+              >
+                <Globe2 aria-hidden className="size-4" /> Explore the globe
+                <ChevronUp aria-hidden className="size-4 rotate-180 text-white/60" />
+              </button>
+            </motion.h1>
+          )}
+        </AnimatePresence>
+        {!controlsOpen && (drawing || notice) ? (
+          <p role="status" className="rounded-md bg-black/70 px-3 py-2 text-sm text-white backdrop-blur">
+            {drawing ? "Drag on the globe to draw a box." : notice}
+          </p>
+        ) : null}
       </div>
 
       {map.data && scale ? (
         <div className="no-print absolute bottom-4 left-4 z-10 sm:bottom-6 sm:left-6">
-          <MapLegend map={map.data} scale={scale} title={`${label} trend`} variableId={variable} />
+          <AnimatePresence initial={false} mode="wait">
+            {legendOpen ? (
+              <motion.div
+                key="legend"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 12 }}
+                transition={{ duration: 0.2 }}
+              >
+                <MapLegend
+                  id="explore-legend"
+                  map={map.data}
+                  scale={scale}
+                  title={`${label} trend`}
+                  variableId={variable}
+                  onHide={() => setLegendOpen(false)}
+                />
+              </motion.div>
+            ) : (
+              <motion.button
+                key="pill"
+                type="button"
+                onClick={() => setLegendOpen(true)}
+                aria-label={`Show ${label.toLowerCase()} trend legend`}
+                aria-controls="explore-legend"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.18 }}
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-black/60 py-1.5 pr-3 pl-1.5 text-sm font-semibold text-white shadow-[0_8px_30px_rgba(0,0,0,0.45)] backdrop-blur-md transition-colors hover:bg-black/75 focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none"
+              >
+                <VariableIcon id={variable} size="sm" />
+                {label} trend
+                <ChevronDown aria-hidden className="size-4 rotate-180 text-white/60" />
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       ) : null}
 
