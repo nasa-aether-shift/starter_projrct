@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import csv
-import hashlib
+import base64
 import io
 import json
 import os
@@ -41,6 +41,8 @@ REGIONS = json.loads((ROOT / "data" / "regions" / "presets.geojson").read_text()
 REGION_BY_ID = {f["properties"]["id"]: f for f in REGIONS["features"]}
 RUNS: dict[str, dict[str, Any]] = {}
 USE_FIXTURES = os.getenv("USE_FIXTURES", "1") == "1"  # turn off once real cache exists
+RUN_ID_PREFIX = "r1_"
+RUN_ID_MAX_LENGTH = 256
 
 
 class TrendRequest(BaseModel):
@@ -75,8 +77,76 @@ def _variable(vid: str) -> dict[str, Any]:
     return CATALOG[vid]
 
 
-def _finish(result: dict[str, Any], variable: dict[str, Any], region_name: str, geometry: Any, provenance_extra: dict) -> dict[str, Any]:
-    run_id = hashlib.sha256(json.dumps([variable["id"], region_name, result["period"], CODE_VERSION]).encode()).hexdigest()[:16]
+def _encode_run_id(payload: dict[str, Any]) -> str:
+    encoded = base64.urlsafe_b64encode(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    ).decode("ascii").rstrip("=")
+    run_id = f"{RUN_ID_PREFIX}{encoded}"
+    if len(run_id) > RUN_ID_MAX_LENGTH:
+        raise problem(422, "Request too long", f"The normalized request exceeds the {RUN_ID_MAX_LENGTH}-character run ID limit.")
+    return run_id
+
+
+def _trend_run_payload(req: TrendRequest, bbox: tuple[float, float, float, float] | None) -> dict[str, Any]:
+    return {
+        "kind": "trend",
+        "variable_id": req.variable_id,
+        "region_id": req.region_id,
+        "bbox": list(bbox) if bbox is not None else None,
+        "start": req.start,
+        "end": req.end,
+        "alpha": float(req.alpha),
+    }
+
+
+def _point_run_payload(req: PointRequest) -> dict[str, Any]:
+    return {
+        "kind": "point",
+        "variable_id": req.variable_id,
+        "region_id": req.region_id,
+        "lat": float(req.lat),
+        "lon": float(req.lon),
+    }
+
+
+def _decode_run_id(run_id: str) -> dict[str, Any]:
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+    if not isinstance(run_id, str) or len(run_id) > RUN_ID_MAX_LENGTH or not run_id.startswith(RUN_ID_PREFIX):
+        raise problem(404, "Unknown run", "This run ID is invalid or unavailable.")
+    encoded = run_id[len(RUN_ID_PREFIX):]
+    if not encoded or any(char not in alphabet for char in encoded):
+        raise problem(404, "Unknown run", "This run ID is invalid or unavailable.")
+    try:
+        raw = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+        payload = json.loads(raw.decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("run payload must be an object")
+        kind = payload.get("kind")
+        if kind == "trend":
+            required = {"kind", "variable_id", "region_id", "bbox", "start", "end", "alpha"}
+            if set(payload) != required:
+                raise ValueError("trend request fields do not match")
+            req = TrendRequest(**{key: payload[key] for key in required if key != "kind"})
+            normalized = _trend_run_payload(req, _bbox_parts(req.bbox) if req.bbox is not None else None)
+        elif kind == "point":
+            required = {"kind", "variable_id", "region_id", "lat", "lon"}
+            if set(payload) != required:
+                raise ValueError("point request fields do not match")
+            req = PointRequest(**{key: payload[key] for key in required if key != "kind"})
+            normalized = _point_run_payload(req)
+        else:
+            raise ValueError("unknown run kind")
+        if _encode_run_id(normalized) != run_id:
+            raise ValueError("run ID is not canonical")
+        return payload
+    except Exception as exc:
+        raise problem(404, "Unknown run", "This run ID is invalid or unavailable.") from exc
+
+
+def _finish(
+    result: dict[str, Any], variable: dict[str, Any], region_name: str, geometry: Any,
+    provenance_extra: dict, *, run_id: str,
+) -> dict[str, Any]:
     manifest = json.loads((CACHE / "manifest.json").read_text()) if (CACHE / "manifest.json").exists() else {}
     manifest_entry = manifest.get(provenance_extra.get("manifest_key", ""), {})
     is_giovanni_series = "giovanni.gsfc.nasa.gov" in manifest_entry.get("source", "")
@@ -108,7 +178,8 @@ def _finish(result: dict[str, Any], variable: dict[str, Any], region_name: str, 
         },
     }
     full["verdict"] = verdict_template(full, variable, region_name)
-    RUNS[run_id] = full
+    if not run_id.startswith(RUN_ID_PREFIX):
+        RUNS[run_id] = full
     return full
 
 
@@ -144,11 +215,16 @@ def _month_index(value: str | None, field: str) -> int | None:
     return year * 12 + month - 1
 
 
-def _analyze_period(time: np.ndarray, values: np.ndarray, req: TrendRequest) -> dict[str, Any]:
+def _validate_request_period(req: TrendRequest) -> tuple[int | None, int | None]:
     start_idx = _month_index(req.start, "start")
     end_idx = _month_index(req.end, "end")
     if start_idx is not None and end_idx is not None and end_idx < start_idx:
         raise problem(422, "Invalid period", "The end month must be the same as or after the start month.")
+    return start_idx, end_idx
+
+
+def _analyze_period(time: np.ndarray, values: np.ndarray, req: TrendRequest) -> dict[str, Any]:
+    start_idx, end_idx = _validate_request_period(req)
     month_idx = np.asarray(time, dtype="datetime64[M]").astype(int)
     keep = np.ones(len(month_idx), dtype=bool)
     if start_idx is not None:
@@ -244,9 +320,11 @@ def _cache_relative_path(path: Path) -> str:
 @app.post("/api/v1/trend")
 def trend(req: TrendRequest) -> dict[str, Any]:
     var = _variable(req.variable_id)
+    _validate_request_period(req)
     if req.bbox is not None:
         bbox = _bbox_parts(req.bbox)
         path = _select_grid(req.variable_id, req.region_id, bbox)
+        run_id = _encode_run_id(_trend_run_payload(req, bbox))
         with np.load(path) as grid:
             time = grid["time"].astype("datetime64[M]")
             lat, lon, cube = grid["lat"].astype(float), grid["lon"].astype(float), grid["cube"].astype(float)
@@ -272,6 +350,7 @@ def trend(req: TrendRequest) -> dict[str, Any]:
         return _finish(
             result, var, region_name, _bbox_geometry(bbox),
             {"manifest_key": f"grid:{path.stem}", "regional": True, "source_file": _cache_relative_path(path), "bbox": list(bbox), "selected_cells": int(mask.sum())},
+            run_id=run_id,
         )
 
     if req.region_id is None:
@@ -279,17 +358,21 @@ def trend(req: TrendRequest) -> dict[str, Any]:
     region = REGION_BY_ID.get(req.region_id)
     if region is None:
         raise problem(404, "Unknown region", f"No preset '{req.region_id}'.")
+    run_id = _encode_run_id(_trend_run_payload(req, None))
     path = CACHE / "results" / f"{req.variable_id}__{req.region_id}.json"
     if path.exists():
         cached = json.loads(path.read_text())
-        if req.start is None and req.end is None:
+        if req.start is None and req.end is None and req.alpha == cached.get("tests", {}).get("alpha", 0.05):
             result = cached
         else:
             result = _analyze_period(
                 np.asarray(cached["series"]["time"], dtype="datetime64[M]"),
                 np.asarray(cached["series"]["raw"], dtype=float), req,
             )
-        return _finish(result, var, region["properties"]["name"], region["geometry"], {"manifest_key": path.stem, "regional": True})
+        return _finish(
+            result, var, region["properties"]["name"], region["geometry"],
+            {"manifest_key": path.stem, "regional": True}, run_id=run_id,
+        )
     if req.start is None and req.end is None and USE_FIXTURES and FIXTURE.exists():
         fx = json.loads(FIXTURE.read_text())
         RUNS[fx["run_id"]] = fx
@@ -309,6 +392,7 @@ def trend_at_point(req: PointRequest) -> dict[str, Any]:
     lat, lon = g["lat"], g["lon"]
     if not (lat.min() <= req.lat <= lat.max() and lon.min() <= req.lon <= lon.max()):
         raise problem(422, "Outside the map", "That point is outside the cached region.")
+    run_id = _encode_run_id(_point_run_payload(req))
     i, j = int(np.abs(lat - req.lat).argmin()), int(np.abs(lon - req.lon).argmin())
     s = MonthlySeries(g["time"].astype("datetime64[M]"), g["cube"][:, i, j])
     try:
@@ -317,7 +401,34 @@ def trend_at_point(req: PointRequest) -> dict[str, Any]:
         raise problem(422, "Not enough data here", str(exc)) from exc
     name = f"Grid cell near {lat[i]:.2f}°, {lon[j]:.2f}°"
     geom = {"type": "Point", "coordinates": [float(lon[j]), float(lat[i])]}
-    return _finish(result, var, name, geom, {"manifest_key": f"grid:{path.stem}", "regional": False})
+    return _finish(result, var, name, geom, {"manifest_key": f"grid:{path.stem}", "regional": False}, run_id=run_id)
+
+
+def _resolve_run(run_id: str) -> dict[str, Any]:
+    if not isinstance(run_id, str) or not run_id.startswith(RUN_ID_PREFIX):
+        if run_id in RUNS:
+            return RUNS[run_id]
+        if USE_FIXTURES and FIXTURE.is_file():
+            fixture = json.loads(FIXTURE.read_text())
+            if fixture.get("run_id") == run_id:
+                return fixture
+        raise problem(404, "Unknown run", "This run ID is invalid or unavailable.")
+
+    payload = _decode_run_id(run_id)
+    try:
+        if payload["kind"] == "trend":
+            request = TrendRequest(**{key: payload[key] for key in ("variable_id", "region_id", "bbox", "start", "end", "alpha")})
+            run = trend(request)
+        else:
+            request = PointRequest(**{key: payload[key] for key in ("variable_id", "region_id", "lat", "lon")})
+            run = trend_at_point(request)
+    except HTTPException as exc:
+        if exc.status_code in (404, 422):
+            raise problem(404, "Unknown run", "The cached inputs for this run are no longer available.") from exc
+        raise
+    if run.get("run_id") != run_id:
+        raise problem(404, "Unknown run", "The cached inputs for this run are no longer available.")
+    return run
 
 
 @app.get("/api/v1/trend-map/{vid}/{region_id}")
@@ -344,9 +455,7 @@ def opposite(vid: str, region_id: str) -> dict[str, Any]:
 
 @app.post("/api/v1/narrative")
 def narrative(req: NarrativeRequest) -> dict[str, Any]:
-    run = RUNS.get(req.run_id)
-    if run is None:
-        raise problem(404, "Unknown run", "Call /trend first; runs are kept in memory.")
+    run = _resolve_run(req.run_id)
     if run["variable"]["id"] not in CATALOG:  # synthetic fixture
         return {"sentences": run["verdict"], "source": "template"}
     var = CATALOG[run["variable"]["id"]]
@@ -359,9 +468,7 @@ def narrative(req: NarrativeRequest) -> dict[str, Any]:
 
 @app.get("/api/v1/runs/{run_id}")
 def get_run(run_id: str) -> dict[str, Any]:
-    if run_id not in RUNS:
-        raise problem(404, "Unknown run", run_id)
-    return RUNS[run_id]
+    return _resolve_run(run_id)
 
 
 @app.get("/api/v1/runs/{run_id}/csv")
