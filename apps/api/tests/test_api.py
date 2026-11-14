@@ -46,6 +46,25 @@ def test_trend_contract_and_narrative(client):
     assert client.get(f"/api/v1/runs/{body['run_id']}/csv").text.startswith("#")
 
 
+def test_giovanni_cached_series_provenance_does_not_claim_backend_spatial_average(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(m, "CACHE", tmp_path)
+    (tmp_path / "results").mkdir(exist_ok=True)
+    (tmp_path / "manifest.json").write_text(json.dumps({
+        "merra2_t2m__kumasi": {
+            "source": "https://giovanni.gsfc.nasa.gov/giovanni/?service=ArAvTs",
+            "dataset_version": "5.12.4",
+            "processing_steps": ["Converted temperature from K to degC (subtract 273.15)."],
+        }
+    }))
+
+    response = client.post("/api/v1/trend", json={"variable_id": "merra2_t2m", "region_id": "kumasi"})
+    assert response.status_code == 200
+    steps = response.json()["provenance"]["steps"]
+    assert "NASA Giovanni area-averaged regional series" in steps
+    assert "Latitude-weighted regional mean" not in steps
+    assert "Converted temperature from K to degC (subtract 273.15)." in steps
+
+
 def test_point_and_errors(client):
     ok = client.post("/api/v1/trend-at-point", json={"variable_id": "merra2_t2m", "region_id": "west_africa", "lat": 6.7, "lon": -1.6})
     assert ok.status_code == 200 and ok.json()["region"]["geometry"]["type"] == "Point"

@@ -77,16 +77,25 @@ def _variable(vid: str) -> dict[str, Any]:
 def _finish(result: dict[str, Any], variable: dict[str, Any], region_name: str, geometry: Any, provenance_extra: dict) -> dict[str, Any]:
     run_id = hashlib.sha256(json.dumps([variable["id"], region_name, result["period"], CODE_VERSION]).encode()).hexdigest()[:16]
     manifest = json.loads((CACHE / "manifest.json").read_text()) if (CACHE / "manifest.json").exists() else {}
+    manifest_entry = manifest.get(provenance_extra.get("manifest_key", ""), {})
+    is_giovanni_series = "giovanni.gsfc.nasa.gov" in manifest_entry.get("source", "")
+    spatial_step = (
+        "NASA Giovanni area-averaged regional series"
+        if is_giovanni_series
+        else "Latitude-weighted regional mean" if provenance_extra.get("regional") else "Nearest grid cell"
+    )
+    quality_step = "Giovanni-declared fill values removed" if is_giovanni_series else "Quality masks and fill values removed"
     full = {
         "run_id": run_id,
         "variable": {"id": variable["id"], "name": variable["name"]["en"], "units": variable["units"], "kind": variable["model_or_measurement"]},
         "region": {"name": region_name, "geometry": geometry},
         **result,
         "provenance": {
-            "datasets": [variable["source"], manifest.get(provenance_extra.get("manifest_key", ""), {})],
+            "datasets": [variable["source"], manifest_entry],
             "steps": [
-                "Quality masks and fill values removed",
-                "Latitude-weighted regional mean" if provenance_extra.get("regional") else "Nearest grid cell",
+                quality_step,
+                spatial_step,
+                *manifest_entry.get("processing_steps", []),
                 "Monthly anomalies (each calendar month's mean removed)",
                 "Theil-Sen slope with 95% interval",
                 "Mann-Kendall (original, Hamed-Rao modified, seasonal, annual) and OLS t-test",
