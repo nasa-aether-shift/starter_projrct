@@ -56,6 +56,7 @@ REGIONS = json.loads((ROOT / "data" / "regions" / "presets.geojson").read_text()
 REGION_BY_ID = {f["properties"]["id"]: f for f in REGIONS["features"]}
 RUNS: dict[str, dict[str, Any]] = {}
 RUN_ID_PREFIX = "r1_"
+COORD_TOLERANCE = 1e-6  # degrees; absorbs float32 rounding in cached grid coordinates
 RUN_ID_MAX_LENGTH = 256
 
 
@@ -167,6 +168,24 @@ def _decode_run_id(run_id: str) -> dict[str, Any]:
         raise problem(404, "Unknown run", "This run ID is invalid or unavailable.") from exc
 
 
+def _provenance_entry(entry: dict[str, Any], keep: int = 3) -> dict[str, Any]:
+    """Manifest entry for a result's provenance; long per-file lists (a grid has one file per month) are summarised.
+
+    The complete lists stay in data/cache/manifest.json, which the summary points to.
+    """
+    urls, files = entry.get("source_urls") or [], entry.get("input_files") or []
+    if len(urls) <= keep and len(files) <= keep:
+        return entry
+    summary = {k: v for k, v in entry.items() if k not in ("source_urls", "input_files")}
+    if urls:
+        summary["source_urls"] = urls if len(urls) <= keep else [urls[0], urls[-1]]
+        summary["source_url_count"] = len(urls)
+    if files:
+        summary["input_file_count"] = len(files)
+    summary["full_record"] = "data/cache/manifest.json"
+    return summary
+
+
 def _finish(
     result: dict[str, Any], variable: dict[str, Any], region_name: str, geometry: Any,
     provenance_extra: dict, *, run_id: str,
@@ -186,7 +205,7 @@ def _finish(
         "region": {"name": region_name, "geometry": geometry},
         **result,
         "provenance": {
-            "datasets": [variable["source"], manifest_entry],
+            "datasets": [variable["source"], _provenance_entry(manifest_entry)],
             "steps": [
                 quality_step,
                 spatial_step,
@@ -305,7 +324,17 @@ def _bbox_covered_by_grid(bbox: tuple[float, float, float, float], lat: np.ndarr
     west, south, east, north = bbox
     grid_west, grid_east = _grid_coverage(lon)
     grid_south, grid_north = _grid_coverage(lat)
-    return grid_west <= west and east <= grid_east and grid_south <= south and north <= grid_north
+    tol = COORD_TOLERANCE
+    return grid_west <= west + tol and east <= grid_east + tol and grid_south <= south + tol and north <= grid_north + tol
+
+
+def _cells_in_box(lat: np.ndarray, lon: np.ndarray, bbox: tuple[float, float, float, float]) -> np.ndarray:
+    """Mask of grid cells whose centres fall inside bbox (allowing float noise, e.g. an equator row of -1.8e-13)."""
+    west, south, east, north = bbox
+    tol = COORD_TOLERANCE
+    lat_mask = (lat >= south - tol) & (lat <= north + tol)
+    lon_mask = (lon >= west - tol) & (lon <= east + tol)
+    return lat_mask[:, None] & lon_mask[None, :]
 
 
 def _select_grid(variable_id: str, region_id: str | None, bbox: tuple[float, float, float, float]) -> Path:
@@ -352,6 +381,36 @@ def _cache_relative_path(path: Path) -> str:
         return path.name
 
 
+def _geometry_bbox(geometry: dict[str, Any]) -> tuple[float, float, float, float]:
+    """(west, south, east, north) of a preset's GeoJSON geometry."""
+    coords = np.asarray([pt for ring in geometry["coordinates"] for pt in ring], dtype=float)
+    return float(coords[:, 0].min()), float(coords[:, 1].min()), float(coords[:, 0].max()), float(coords[:, 1].max())
+
+
+def _grid_box_result(path: Path, bbox: tuple[float, float, float, float], req: TrendRequest) -> tuple[dict[str, Any], int]:
+    """Analyse the latitude-weighted mean of the cached grid cells whose centres fall inside bbox."""
+    with np.load(path) as grid:
+        time = grid["time"].astype("datetime64[M]")
+        lat, lon, cube = grid["lat"].astype(float), grid["lon"].astype(float), grid["cube"].astype(float)
+    if cube.shape != (len(time), len(lat), len(lon)):
+        raise problem(422, "Invalid cached grid", "Cached grid dimensions do not match its time, latitude, and longitude coordinates.")
+    west, south, east, north = bbox
+    mask = _cells_in_box(lat, lon, bbox)
+    notices: list[str] = []
+    if not mask.any():
+        mid_lat, mid_lon = (south + north) / 2, (west + east) / 2
+        lon_scale = np.cos(np.deg2rad(mid_lat))
+        distance = (lat[:, None] - mid_lat) ** 2 + (lon_scale * (lon[None, :] - mid_lon)) ** 2
+        i, j = np.unravel_index(np.argmin(distance), distance.shape)
+        mask[i, j] = True
+        notices.append(f"No grid-cell centre fell inside the bbox; nearest grid-cell centre ({lat[i]:.4f}, {lon[j]:.4f}) was used.")
+    values = regional_series(cube, mask, cell_weights(lat, mask.shape))
+    result = _analyze_period(time, values, req)
+    if result["data_quality"] is not None:
+        result["data_quality"]["notices"].extend(notices)
+    return result, int(mask.sum())
+
+
 @app.post("/api/v1/trend")
 def trend(req: TrendRequest) -> dict[str, Any]:
     var = _variable(req.variable_id)
@@ -360,31 +419,10 @@ def trend(req: TrendRequest) -> dict[str, Any]:
         bbox = _bbox_parts(req.bbox)
         path = _select_grid(req.variable_id, req.region_id, bbox)
         run_id = _encode_run_id(_trend_run_payload(req, bbox))
-        with np.load(path) as grid:
-            time = grid["time"].astype("datetime64[M]")
-            lat, lon, cube = grid["lat"].astype(float), grid["lon"].astype(float), grid["cube"].astype(float)
-        if cube.shape != (len(time), len(lat), len(lon)):
-            raise problem(422, "Invalid cached grid", "Cached grid dimensions do not match its time, latitude, and longitude coordinates.")
-        west, south, east, north = bbox
-        lat_mask = (lat >= south) & (lat <= north)
-        lon_mask = (lon >= west) & (lon <= east)
-        mask = lat_mask[:, None] & lon_mask[None, :]
-        notices: list[str] = []
-        if not mask.any():
-            mid_lat, mid_lon = (south + north) / 2, (west + east) / 2
-            lon_scale = np.cos(np.deg2rad(mid_lat))
-            distance = (lat[:, None] - mid_lat) ** 2 + (lon_scale * (lon[None, :] - mid_lon)) ** 2
-            i, j = np.unravel_index(np.argmin(distance), distance.shape)
-            mask[i, j] = True
-            notices.append(f"No grid-cell centre fell inside the bbox; nearest grid-cell centre ({lat[i]:.4f}, {lon[j]:.4f}) was used.")
-        values = regional_series(cube, mask, cell_weights(lat, mask.shape))
-        result = _analyze_period(time, values, req)
-        if result["data_quality"] is not None:
-            result["data_quality"]["notices"].extend(notices)
-        region_name = "Custom bounding box"
+        result, cells = _grid_box_result(path, bbox, req)
         return _finish(
-            result, var, region_name, _bbox_geometry(bbox),
-            {"manifest_key": f"grid:{path.stem}", "regional": True, "source_file": _cache_relative_path(path), "bbox": list(bbox), "selected_cells": int(mask.sum())},
+            result, var, "Custom bounding box", _bbox_geometry(bbox),
+            {"manifest_key": f"grid:{path.stem}", "regional": True, "source_file": _cache_relative_path(path), "bbox": list(bbox), "selected_cells": cells},
             run_id=run_id,
         )
 
@@ -407,6 +445,20 @@ def trend(req: TrendRequest) -> dict[str, Any]:
         return _finish(
             result, var, region["properties"]["name"], region["geometry"],
             {"manifest_key": path.stem, "regional": True}, run_id=run_id,
+        )
+    # No cached regional result: average the cells of a cached grid that covers the preset, as for a drawn box.
+    region_box = _geometry_bbox(region["geometry"])
+    try:
+        grid_path = _select_grid(req.variable_id, None, region_box)
+    except HTTPException:
+        grid_path = None
+    if grid_path is not None:
+        result, cells = _grid_box_result(grid_path, region_box, req)
+        return _finish(
+            result, var, region["properties"]["name"], region["geometry"],
+            {"manifest_key": f"grid:{grid_path.stem}", "regional": True, "source_file": _cache_relative_path(grid_path),
+             "bbox": list(region_box), "selected_cells": cells},
+            run_id=run_id,
         )
     if req.start is None and req.end is None and USE_FIXTURES and FIXTURE.exists():
         fx = json.loads(FIXTURE.read_text())
