@@ -33,9 +33,12 @@ export function SystemCheck() {
   const rows: Row[] = [
     {
       label: "API health",
-      status: health.isPending ? "pending" : health.isError ? "error" : "ok",
+      // Serving fixtures is a failed gate: those numbers are synthetic and must not reach the pitch.
+      status: health.isPending ? "pending" : health.isError || health.data.using_fixtures ? "error" : "ok",
       detail: health.data
-        ? `${health.data.status}, code ${health.data.code_version}`
+        ? health.data.using_fixtures
+          ? `${health.data.status}, but serving SYNTHETIC fixtures (USE_FIXTURES=1), code ${health.data.code_version}`
+          : `${health.data.status}, code ${health.data.code_version}`
         : health.isError
           ? errText(health.error)
           : "",

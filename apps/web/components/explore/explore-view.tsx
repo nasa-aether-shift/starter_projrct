@@ -23,6 +23,7 @@ import { bboxRing, geometryRing, showFocus, showPresetOutlines, type FocusTarget
 import { GHANA_VIEW, KUMASI_VIEW } from "@/lib/cesium/config";
 import { isAlive, type GlobeHandle } from "@/lib/cesium/create-globe";
 import { onGlobeClick, startBoxDraw } from "@/lib/cesium/interaction";
+import { env } from "@/lib/env";
 import { useBoundaries } from "@/lib/geo/boundaries";
 import { useUserLocation } from "@/lib/geo/use-user-location";
 import { MAP_REGION, formatBox, writeRegion, type BBox, type RegionChoice } from "@/lib/region";
@@ -326,15 +327,17 @@ export function ExploreView() {
                 ))}
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={drawing ? "default" : "outline"}
-                  aria-pressed={drawing}
-                  disabled={!globe}
-                  onClick={() => setDrawing((d) => !d)}
-                  className="border-white/30 bg-transparent text-white"
-                >
-                  <SquareDashed aria-hidden /> {drawing ? "Drag on the globe…" : "Draw a box"}
-                </Button>
+                {env.enableBox ? (
+                  <Button
+                    variant={drawing ? "default" : "outline"}
+                    aria-pressed={drawing}
+                    disabled={!globe}
+                    onClick={() => setDrawing((d) => !d)}
+                    className="border-white/30 bg-transparent text-white"
+                  >
+                    <SquareDashed aria-hidden /> {drawing ? "Drag on the globe…" : "Draw a box"}
+                  </Button>
+                ) : null}
                 <Button variant="outline" onClick={backToGlobe} className="border-white/30 bg-transparent text-white">
                   <Globe2 aria-hidden /> Back to globe
                 </Button>

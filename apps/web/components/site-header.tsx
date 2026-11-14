@@ -22,7 +22,7 @@ export function SiteHeader() {
           <Satellite aria-hidden className="size-6 text-primary" />
           <span className="hidden md:inline">Earth Data Detective</span>
         </Link>
-        <nav aria-label="Main" className="ml-auto min-w-0 overflow-x-auto">
+        <nav aria-label="Main" className="ml-auto min-w-0 overflow-x-auto overflow-y-hidden">
           <ul className="flex items-center gap-1 text-base whitespace-nowrap sm:gap-2">
             {NAV.map((item) => (
               <li key={item.href}>

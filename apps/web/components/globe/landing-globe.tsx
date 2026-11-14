@@ -2,14 +2,16 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Layers } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { SpaceIntro } from "@/components/intro/space-intro";
 import { useTrendMap } from "@/lib/api/hooks";
 import { useBoundaries } from "@/lib/geo/boundaries";
 import { flyTo } from "@/lib/cesium/camera";
 import { START_VIEW } from "@/lib/cesium/config";
 import { isAlive, type GlobeHandle } from "@/lib/cesium/create-globe";
 import { showFocus } from "@/lib/cesium/focus";
+import { env } from "@/lib/env";
 import { useUserLocation } from "@/lib/geo/use-user-location";
 import { MAP_REGION } from "@/lib/region";
 import { variableMeta } from "@/lib/variable-meta";
@@ -31,10 +33,25 @@ export function LandingGlobe() {
   const boundaries = useBoundaries();
   useBoundaryLayer(globe, boundaries.data);
 
-  // Face the visitor: turn the globe to their location (kept in the browser) and mark it.
-  const here = useUserLocation();
+  // Space intro (first launch only; SpaceIntro decides): the flight ends on the globe's start view, then fades
+  // into it. Starts as "playing" so nothing moves the globe until SpaceIntro has decided.
+  const [intro, setIntro] = useState<"playing" | "revealing" | "done">(env.intro ? "playing" : "done");
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  // While it plays, hold the globe still on START_VIEW (where the flight ends) and let it load tiles at a low
+  // frame rate so the GPU serves the intro.
   useEffect(() => {
-    if (!isAlive(globe) || here.status !== "ok") return;
+    if (!isAlive(globe)) return;
+    globe.setSpin(intro === "done");
+    globe.setFrameRate(intro === "playing" ? 10 : undefined);
+  }, [globe, intro]);
+
+  // Face the visitor: turn the globe to their location (kept in the browser) and mark it. Asked only after the
+  // intro, so the permission prompt never interrupts it.
+  const here = useUserLocation(intro === "done");
+  useEffect(() => {
+    // A location remembered from an earlier visit must not move the globe while the intro is landing on it.
+    if (!isAlive(globe) || here.status !== "ok" || intro !== "done") return;
     let active = true;
     globe.setSpin(false); // pause during the turn, then keep spinning (the pin rides along with the Earth)
     // Lift the location above the "Map layer" card that sits over the lower part of the globe.
@@ -58,13 +75,16 @@ export function LandingGlobe() {
       active = false;
       removeFocus();
     };
-  }, [globe, here]);
+  }, [globe, here, intro]);
 
   const [cardOpen, setCardOpen] = useState(false); // starts collapsed: the globe gets the stage until asked
 
   return (
     <>
-      <div className="absolute inset-y-0 right-0 left-0 -z-10 lg:-right-[45%]">
+      {intro !== "done" ? (
+        <SpaceIntro frameRef={frameRef} onReveal={() => setIntro("revealing")} onDone={() => setIntro("done")} />
+      ) : null}
+      <div ref={frameRef} className="absolute inset-y-0 right-0 left-0 -z-10 lg:-right-[45%]">
         <Globe onReady={setGlobe} />
         <GlobeHoverTooltip
           globe={globe}
