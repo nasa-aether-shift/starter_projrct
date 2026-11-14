@@ -1,4 +1,5 @@
 """API smoke tests on SYNTHETIC cached files written to a temp folder (never committed)."""
+import base64
 import json
 
 import numpy as np
@@ -44,6 +45,116 @@ def test_trend_contract_and_narrative(client):
     n = client.post("/api/v1/narrative", json={"run_id": body["run_id"]}).json()
     assert n["source"] == "template"  # no LLM key in tests
     assert client.get(f"/api/v1/runs/{body['run_id']}/csv").text.startswith("#")
+
+
+def test_run_id_is_url_safe_and_encodes_normalized_request(client):
+    response = client.post("/api/v1/trend", json={
+        "variable_id": "merra2_t2m", "region_id": "kumasi", "bbox": None,
+        "start": "2000-01", "end": "2009-12", "alpha": 0.05,
+    })
+    assert response.status_code == 200
+    run_id = response.json()["run_id"]
+    assert run_id not in m.RUNS
+    assert run_id.startswith("r1_")
+    assert len(run_id) <= 256
+    assert all(c.isalnum() or c in "_-" for c in run_id)
+    encoded = run_id.removeprefix("r1_")
+    payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    assert payload == {
+        "alpha": 0.05,
+        "bbox": None,
+        "end": "2009-12",
+        "kind": "trend",
+        "region_id": "kumasi",
+        "start": "2000-01",
+        "variable_id": "merra2_t2m",
+    }
+
+
+def test_normalized_equivalent_bbox_requests_share_a_run_id(client):
+    body = {
+        "variable_id": "merra2_t2m", "region_id": None,
+        "bbox": [-2.5, 6, -1.5, 7], "start": None, "end": None, "alpha": 0.05,
+    }
+    first = client.post("/api/v1/trend", json=body)
+    body["bbox"] = [-2.5, 6.0, -1.5, 7.0]
+    second = client.post("/api/v1/trend", json=body)
+    assert first.status_code == second.status_code == 200
+    assert first.json()["run_id"] == second.json()["run_id"]
+
+
+def test_cached_preset_reanalysis_uses_requested_alpha(client):
+    default = client.post("/api/v1/trend", json={
+        "variable_id": "merra2_t2m", "region_id": "kumasi", "bbox": None,
+        "start": None, "end": None, "alpha": 0.05,
+    }).json()
+    response = client.post("/api/v1/trend", json={
+        "variable_id": "merra2_t2m", "region_id": "kumasi", "bbox": None,
+        "start": None, "end": None, "alpha": 0.1,
+    })
+    assert response.status_code == 200
+    assert response.json()["tests"]["alpha"] == 0.1
+    assert response.json()["run_id"] != default["run_id"]
+
+
+def test_run_get_csv_and_narrative_recompute_after_simulated_restart(client):
+    first = client.post("/api/v1/trend", json={
+        "variable_id": "merra2_t2m", "region_id": "kumasi", "bbox": None,
+        "start": None, "end": None, "alpha": 0.05,
+    }).json()
+    run_id = first["run_id"]
+
+    m.RUNS.clear()
+    restored = client.get(f"/api/v1/runs/{run_id}")
+    assert restored.status_code == 200
+    assert restored.json()["run_id"] == run_id
+    restored_body = restored.json()
+    first["provenance"].pop("created_at")
+    restored_body["provenance"].pop("created_at")
+    assert restored_body == first
+
+    m.RUNS.clear()
+    csv_response = client.get(f"/api/v1/runs/{run_id}/csv")
+    assert csv_response.status_code == 200
+    assert csv_response.text.startswith("#")
+
+    m.RUNS.clear()
+    narrative = client.post("/api/v1/narrative", json={"run_id": run_id, "use_ai": False})
+    assert narrative.status_code == 200
+    assert narrative.json()["source"] == "template"
+
+
+def test_bbox_run_can_be_reconstructed_after_simulated_restart(client):
+    first = client.post("/api/v1/trend", json={
+        "variable_id": "merra2_t2m", "region_id": None,
+        "bbox": [-2.5, 6.0, -1.5, 7.0], "start": None, "end": None, "alpha": 0.05,
+    }).json()
+    m.RUNS.clear()
+    restored = client.get(f"/api/v1/runs/{first['run_id']}")
+    assert restored.status_code == 200
+    restored_body = restored.json()
+    first["provenance"].pop("created_at")
+    restored_body["provenance"].pop("created_at")
+    assert restored_body == first
+
+
+def test_point_run_can_be_reconstructed_after_simulated_restart(client):
+    first = client.post("/api/v1/trend-at-point", json={
+        "variable_id": "merra2_t2m", "region_id": "west_africa", "lat": 6.7, "lon": -1.6,
+    }).json()
+    assert first["run_id"] not in m.RUNS
+    m.RUNS.clear()
+    restored = client.get(f"/api/v1/runs/{first['run_id']}")
+    assert restored.status_code == 200
+    assert restored.json()["run_id"] == first["run_id"]
+    assert restored.json()["region"]["geometry"] == first["region"]["geometry"]
+
+
+def test_unknown_or_oversized_run_ids_return_404(client):
+    for run_id in ("not-a-run", "r1_!invalid", "r1_" + "a" * 300):
+        assert client.get(f"/api/v1/runs/{run_id}").status_code == 404
+        assert client.get(f"/api/v1/runs/{run_id}/csv").status_code == 404
+        assert client.post("/api/v1/narrative", json={"run_id": run_id, "use_ai": False}).status_code == 404
 
 
 def test_trend_applies_requested_month_period_to_cached_series(client):
