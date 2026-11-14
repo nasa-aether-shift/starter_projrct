@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { FixtureBanner } from "@/components/fixture-banner";
 import { SiteHeader } from "@/components/site-header";
+import { INTRO_SKIP_SCRIPT } from "@/lib/intro/seen";
 
 import { Providers } from "./providers";
 import "./globals.css";
@@ -22,7 +23,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`dark ${sans.variable} ${mono.variable} h-full antialiased`}>
+    // suppressHydrationWarning: INTRO_SKIP_SCRIPT may set data-intro-skip on <html> before React hydrates.
+    <html lang="en" className={`dark ${sans.variable} ${mono.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: INTRO_SKIP_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col">
         <a
           href="#main"

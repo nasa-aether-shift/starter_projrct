@@ -24,6 +24,8 @@ and restart `npm run dev`.
 | `NEXT_PUBLIC_GLOBE_MODE`       | `cesium`                       | `static` = image hero + region picker, no WebGL globe             |
 | `NEXT_PUBLIC_CESIUM_ION_TOKEN` | empty                          | Cesium World Terrain if set, smooth ellipsoid otherwise           |
 | `NEXT_PUBLIC_GLOBE_HDR`        | `0`                            | High dynamic range rendering on the globe                         |
+| `NEXT_PUBLIC_INTRO`            | `1`                            | Space intro on a visitor's first launch (`?intro=1` replays); `0` off |
+| `NEXT_PUBLIC_ENABLE_BOX`       | `0`                            | Offer "Draw a box" regions; keep `0` until `/trend` takes a bbox  |
 
 `NEXT_PUBLIC_*` values are baked in at build time; restart or rebuild after changing them.
 
