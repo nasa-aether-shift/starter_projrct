@@ -1,0 +1,19 @@
+id: modis_ndvi
+name: {en: Vegetation greenness (NDVI), tw: Nnua mu ahabammono}   # Twi to be reviewed
+definition:
+  kid: {en: How green and leafy the plants are.}
+  student: {en: A greenness score from 0 to 1 measured from space; higher means more healthy plants.}
+  scientist: {en: Normalized Difference Vegetation Index from MODIS Terra monthly vegetation indices (CMG).}
+units: index
+source: {collection: MOD13C2, version: "<verify in CMR>", variable: CMG 0.05 Deg Monthly NDVI, provider: NASA LP DAAC}
+resolution: {spatial_deg: 0.05, temporal: monthly}
+coverage: {start: 2000-02, end: "<latest>"}
+qa: {min_valid_fraction: 0.75, scale_factor: 0.0001}
+palette_polarity: green_is_green
+synonyms: [vegetation, green, greener, plants, trees, forest, crops, farming, deforestation]
+typical_questions: ["Is the land getting greener?", "Are forests shrinking here?"]
+caveats:
+  - Clouds can contaminate monthly values in the rainy season.
+  - NDVI saturates over dense forest, so small changes there are hard to see.
+recommended_min_years: 15
+model_or_measurement: measurement

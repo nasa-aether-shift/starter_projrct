@@ -1,0 +1,19 @@
+id: merra2_t2m
+name: {en: Air temperature, tw: Mframa mu ɔhyew}   # Twi to be reviewed by a fluent speaker
+definition:
+  kid: {en: How warm the air is just above the ground.}
+  student: {en: Monthly average air temperature 2 metres above the ground, in degrees Celsius.}
+  scientist: {en: 2 m air temperature (T2M) from the MERRA-2 reanalysis, monthly mean.}
+units: degC
+source: {collection: M2TMNXSLV, version: "<verify in CMR>", variable: T2M, provider: NASA GMAO}
+resolution: {spatial_deg: "0.5 x 0.625", temporal: monthly}
+coverage: {start: 1980-01, end: "<latest>"}
+qa: {min_valid_fraction: 0.75, convert: "K -> degC (subtract 273.15)"}
+palette_polarity: warm_is_red
+synonyms: [temperature, heat, hot, hotter, warm, warming, cooler, ɔhyew]
+typical_questions: ["Is it getting hotter here?", "Is Kumasi warming?"]
+caveats:
+  - MERRA-2 is a model reanalysis, not a direct measurement.
+  - Each grid cell is about 50 km wide, so a city and its surroundings share one value.
+recommended_min_years: 15
+model_or_measurement: model

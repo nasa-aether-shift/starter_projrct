@@ -1,0 +1,19 @@
+id: gpm_precip
+name: {en: Rainfall, tw: Nsuo a ɛtɔ}   # Twi to be reviewed by a fluent speaker
+definition:
+  kid: {en: How much rain falls from the sky.}
+  student: {en: Total rain reaching the ground in a month, in millimetres.}
+  scientist: {en: Satellite-gauge merged monthly precipitation from GPM IMERG Final Run.}
+units: mm/month
+source: {collection: GPM_3IMERGM, version: "<verify in CMR>", variable: precipitation, provider: NASA GES DISC}
+resolution: {spatial_deg: 0.1, temporal: monthly}
+coverage: {start: 2000-06, end: "<latest>"}
+qa: {min_valid_fraction: 0.75, convert: "mm/hr -> mm/month (x hours in month), check units on download"}
+palette_polarity: wet_is_blue
+synonyms: [rain, rainfall, drought, wetter, drier, dry, flood, nsuo]
+typical_questions: ["Is it getting drier here?", "Is the rainy season changing?"]
+caveats:
+  - Record starts in mid-2000, so about 25 years.
+  - Algorithm version changes can shift values.
+recommended_min_years: 15
+model_or_measurement: measurement

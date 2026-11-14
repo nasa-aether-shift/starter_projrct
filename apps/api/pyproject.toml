@@ -1,0 +1,8 @@
+[project]
+name = "edd-api"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["fastapi", "uvicorn[standard]", "pydantic>=2", "pyyaml", "numpy", "scipy", "httpx"]
+
+[tool.pytest.ini_options]
+pythonpath = [".", "../../packages/stats_engine"]
