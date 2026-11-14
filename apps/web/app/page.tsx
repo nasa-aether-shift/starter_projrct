@@ -31,11 +31,7 @@ export default function Home() {
                 Start an investigation <ArrowRight aria-hidden />
               </Link>
             </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="h-10 border-white/30 bg-black/40 px-4 text-sm text-white"
-            >
+            <Button asChild variant="outline" className="h-10 border-white/30 bg-black/40 px-4 text-sm text-white">
               <Link href="/cases/kumasi">
                 <MapPin aria-hidden /> The Kumasi case
               </Link>
