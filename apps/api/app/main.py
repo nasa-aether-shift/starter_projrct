@@ -7,6 +7,7 @@ import io
 import json
 import os
 import sys
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -27,8 +28,22 @@ from .ai import rewrite, verdict_template  # noqa: E402
 CODE_VERSION = os.getenv("CODE_VERSION", "0.1.0")
 CACHE = ROOT / "data" / "cache"
 FIXTURE = ROOT / "packages" / "shared-schemas" / "fixtures" / "trend.fixture.json"
+REQUIRED_CACHE_FILES = (Path("results") / "merra2_t2m__kumasi.json",)
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+USE_FIXTURES = os.getenv("USE_FIXTURES", "1") == "1"  # turn off once real cache exists
 
-app = FastAPI(title="Earth Data Detective API", version=CODE_VERSION)
+
+def validate_startup_config() -> None:
+    if APP_ENV == "production" and USE_FIXTURES:
+        raise RuntimeError("APP_ENV=production requires USE_FIXTURES=0.")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    validate_startup_config()
+    yield
+
+app = FastAPI(title="Earth Data Detective API", version=CODE_VERSION, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(","),
@@ -40,7 +55,6 @@ CATALOG = {p.stem: yaml.safe_load(p.read_text()) for p in (ROOT / "data" / "cata
 REGIONS = json.loads((ROOT / "data" / "regions" / "presets.geojson").read_text())
 REGION_BY_ID = {f["properties"]["id"]: f for f in REGIONS["features"]}
 RUNS: dict[str, dict[str, Any]] = {}
-USE_FIXTURES = os.getenv("USE_FIXTURES", "1") == "1"  # turn off once real cache exists
 RUN_ID_PREFIX = "r1_"
 RUN_ID_MAX_LENGTH = 256
 
@@ -186,7 +200,18 @@ def _finish(
 @app.get("/api/v1/health")
 def health() -> dict[str, Any]:
     results = sorted(p.stem for p in (CACHE / "results").glob("*.json")) if (CACHE / "results").exists() else []
-    return {"status": "ok", "code_version": CODE_VERSION, "cached_results": results, "using_fixtures": USE_FIXTURES}
+    missing = [
+        str(Path("data/cache") / relative_path)
+        for relative_path in REQUIRED_CACHE_FILES
+        if not (CACHE / relative_path).is_file()
+    ]
+    return {
+        "status": "ok",
+        "code_version": CODE_VERSION,
+        "cached_results": results,
+        "using_fixtures": USE_FIXTURES,
+        "missing_cache_files": missing,
+    }
 
 
 @app.get("/api/v1/variables")
@@ -406,7 +431,7 @@ def trend_at_point(req: PointRequest) -> dict[str, Any]:
 
 def _resolve_run(run_id: str) -> dict[str, Any]:
     if not isinstance(run_id, str) or not run_id.startswith(RUN_ID_PREFIX):
-        if run_id in RUNS:
+        if USE_FIXTURES and run_id in RUNS:
             return RUNS[run_id]
         if USE_FIXTURES and FIXTURE.is_file():
             fixture = json.loads(FIXTURE.read_text())
