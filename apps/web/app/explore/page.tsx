@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Explore the globe" };
 
 export default function ExplorePage() {
   return (
-    <Suspense fallback={<div className="min-h-[calc(100dvh-4rem)] flex-1 bg-black" />}>
+    <Suspense fallback={<div className="min-h-[30rem] flex-1 bg-black" />}>
       <ExploreView />
     </Suspense>
   );

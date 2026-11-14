@@ -60,8 +60,19 @@ types/          generated OpenAPI types
   `npm run cesium:assets`).
 - `components/globe/globe.tsx` loads the globe with `next/dynamic` (`ssr: false`). `NEXT_PUBLIC_GLOBE_MODE=static` shows a
   NASA Blue Marble image instead, and the globe falls back to that automatically if WebGL fails.
-- Imagery comes from NASA GIBS WMTS (`lib/cesium/imagery.ts`): Blue Marble base, Black Marble night lights, Landsat WELD
-  close range. These public tiles are the only NASA calls the browser makes.
+- Imagery (`lib/cesium/imagery.ts`): NASA GIBS WMTS Blue Marble base and Black Marble night lights; below ~1,500 km
+  it fades to Sentinel-2 cloudless 2024 by EOX (10 m, CC BY-NC-SA 4.0, credited on the globe). These public tiles
+  are the only third-party calls the browser makes.
+- The trend overlay has two textures (`lib/cesium/overlay.ts`): a detailed one for regional zoom and a bolder "beacon"
+  with a wide glow that takes over above ~3,500 km, so hotspots stay visible from space.
+- Performance (`lib/cesium/performance.ts`): a starting quality tier from device hints (phone, memory, cores,
+  data-saver, software GL), a governor that steps quality down (MSAA → resolution → tile detail → atmosphere) if
+  frames average under ~45 fps, and the render loop pauses while the globe is off-screen or the tab is hidden.
+  Overlay colour tweaks are baked into the textures (layer saturation/contrast would add globe shader variants).
+- Sky (`lib/cesium/solar-system.ts`): Cesium's star field, Sun and Moon, plus the planets at their real positions
+  for the scene's date (JPL approximate elements; checked against Cesium's Sun to 0.003°), names on hover. Planets
+  are drawn only above 6,000 km and just beyond the Earth, so they never force a second render pass.
+- In development, `window.__viewer` and `window.Cesium` are exposed for console debugging and scripted screenshots.
 - Camera, spin and fade settings live in `lib/cesium/config.ts`. The idle spin stops on any input, resumes after 5 s and
   never runs with `prefers-reduced-motion`.
 
