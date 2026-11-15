@@ -23,28 +23,32 @@ export function GradeBadge({
   grade,
   label,
   sub,
+  showSub = true,
   size = "lg",
 }: {
   grade: Grade;
   label?: string;
   sub?: string;
+  showSub?: boolean;
   size?: "sm" | "lg";
 }) {
-  const box = size === "lg" ? "size-16 text-4xl" : "size-9 text-xl";
+  const box = size === "lg" ? "size-16 text-4xl" : "size-8 text-lg";
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex min-w-0 items-center gap-3">
       <span
         aria-hidden
         className={`flex ${box} shrink-0 items-center justify-center rounded-xl border-2 font-bold ${STYLE[grade]}`}
       >
         {grade}
       </span>
-      <span className="leading-tight">
+      <span className="min-w-0 leading-tight break-words">
         <span className="sr-only">Evidence grade {grade}: </span>
-        <span className="block font-semibold">{gradeLabel(grade, label)}</span>
-        <span aria-hidden className="block text-sm text-muted-foreground">
-          {sub ?? `Evidence grade ${grade}`}
-        </span>
+        <span className={`block font-semibold ${size === "sm" ? "text-sm" : ""}`}>{gradeLabel(grade, label)}</span>
+        {showSub ? (
+          <span aria-hidden className="block text-sm text-muted-foreground">
+            {sub ?? `Evidence grade ${grade}`}
+          </span>
+        ) : null}
       </span>
     </div>
   );
