@@ -12,6 +12,7 @@ import { formatBox, regionFromSearch, writeRegion, type RegionChoice } from "@/l
 import { rankVariables } from "@/lib/variable-match";
 
 import { VariableStep, type Suggestion } from "./variable-step";
+import { YearSelect } from "./year-select";
 
 const STEPS = ["Question", "Variable", "Place", "Period", "Results"] as const;
 /** Last full year of data the demo cache covers. */
@@ -124,6 +125,7 @@ export function Wizard() {
   const startParam = startYear === firstYear ? coverageStart : `${startYear}-01`;
   const endParam = `${endYear}-12`;
   const years = endYear - startYear + 1;
+  const yearOptions = Array.from({ length: LAST_YEAR - firstYear + 1 }, (_, i) => firstYear + i);
 
   const regionName =
     region?.kind === "preset"
@@ -173,15 +175,21 @@ export function Wizard() {
                   disabled={n > step}
                   aria-current={state === "current" ? "step" : undefined}
                   onClick={() => go(n)}
-                  className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-base ${
+                  className={`relative flex items-center gap-2 px-4 py-1.5 text-base transition-colors duration-200 ${
                     state === "current"
-                      ? "border-primary bg-primary text-primary-foreground"
+                      ? "font-bold text-foreground"
                       : state === "done"
-                        ? "border-primary/50 text-foreground"
-                        : "border-border text-muted-foreground"
+                        ? "font-semibold text-foreground"
+                        : "font-normal text-muted-foreground"
                   }`}
                 >
-                  <span className="tabular font-semibold">{n}</span> {label}
+                  <span className="tabular">{n}</span> {label}
+                  <span
+                    aria-hidden
+                    className={`absolute inset-x-2 -bottom-0.5 h-0.5 origin-left rounded-full bg-primary transition-transform duration-300 ease-out ${
+                      state === "current" ? "scale-x-100" : "scale-x-0"
+                    }`}
+                  />
                 </button>
               </li>
             );
@@ -210,7 +218,7 @@ export function Wizard() {
               Your question
             </label>
             <div className="relative">
-              <Search aria-hidden className="absolute top-4 left-4 size-6 text-muted-foreground" />
+              <Search aria-hidden className="absolute top-3.5 left-4 size-6 text-muted-foreground" />
               <textarea
                 id="question"
                 role="combobox"
@@ -244,10 +252,10 @@ export function Wizard() {
                     if (selected) chooseQuestionSuggestion(selected);
                   }
                 }}
-                rows={2}
+                rows={1}
                 maxLength={300}
                 placeholder="Is Kumasi getting hotter?"
-                className="w-full resize-none rounded-2xl border border-input bg-panel py-3.5 pr-4 pl-14 text-xl"
+                className="w-full resize-none rounded-2xl border border-input bg-panel py-3 pr-4 pl-14 text-xl focus-visible:outline-2 focus-visible:outline-offset-1"
               />
               {showQuestionSuggestions ? (
                 <div
@@ -305,7 +313,7 @@ export function Wizard() {
               </div>
             </section>
             <Button type="submit" size="lg" className="h-12 w-fit px-6 text-lg" disabled={!canNext}>
-              Find the right data <ArrowRight aria-hidden />
+              Find the right data
             </Button>
           </form>
         ) : null}
@@ -341,17 +349,12 @@ export function Wizard() {
               ).map(([label, val, key, toParam]) => (
                 <label key={key} className="flex flex-col gap-1">
                   <span className="text-muted-foreground">{label}</span>
-                  <select
+                  <YearSelect
+                    label={label}
                     value={val}
-                    onChange={(e) => update({ [key]: toParam(Number(e.target.value)) })}
-                    className="tabular rounded-lg border border-input bg-panel px-4 py-2.5 text-lg"
-                  >
-                    {Array.from({ length: LAST_YEAR - firstYear + 1 }, (_, i) => firstYear + i).map((y) => (
-                      <option key={y} value={y}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
+                    years={yearOptions}
+                    onChange={(year) => update({ [key]: toParam(year) })}
+                  />
                 </label>
               ))}
             </div>
@@ -391,9 +394,7 @@ export function Wizard() {
                   <Loader2 aria-hidden className="animate-spin" /> Analysing {years} years of data…
                 </>
               ) : (
-                <>
-                  Run the analysis <ArrowRight aria-hidden />
-                </>
+                "Run the analysis"
               )}
             </Button>
           </div>
