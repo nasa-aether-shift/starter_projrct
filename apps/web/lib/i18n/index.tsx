@@ -3,7 +3,17 @@
 // Minimal i18n: a JSON dictionary per language and a React context. Scope (per the brief): the verdict
 // card and the Kumasi case. Twi strings are a DRAFT pending review by a fluent speaker.
 
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Check, Globe } from "lucide-react";
 
 import en from "./en.json";
@@ -82,7 +92,10 @@ export function LanguageSwitcher() {
   const { lang, setLang } = useI18n();
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(() =>
-    Math.max(0, LANGUAGES.findIndex((item) => item.lang === lang)),
+    Math.max(
+      0,
+      LANGUAGES.findIndex((item) => item.lang === lang),
+    ),
   );
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -104,7 +117,12 @@ export function LanguageSwitcher() {
   }, [open, activeIndex]);
 
   const openList = () => {
-    setActiveIndex(Math.max(0, LANGUAGES.findIndex((item) => item.lang === lang)));
+    setActiveIndex(
+      Math.max(
+        0,
+        LANGUAGES.findIndex((item) => item.lang === lang),
+      ),
+    );
     setOpen(true);
   };
 

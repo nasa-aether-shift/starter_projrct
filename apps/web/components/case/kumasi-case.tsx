@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, CheckCircle2, HelpCircle, Search } from "lucide-react";
+import { ArrowRight, HelpCircle, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -118,39 +118,6 @@ export function KumasiCase() {
             <>
               <Headline result={r} palettePolarity={tempVar?.palette_polarity} />
               <TimeSeriesChart result={r} palettePolarity={tempVar?.palette_polarity} />
-              <div className="mt-8 rounded-2xl border border-primary/30 bg-card p-6 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="size-5 text-emerald-400" />
-                    <span className="text-xs font-semibold tracking-wider text-emerald-400 uppercase">
-                      In-Situ Ground Check · NOAA Climate Data Online
-                    </span>
-                  </div>
-                  <span className="font-mono text-xs text-muted-foreground">Station: GHM00065442 (Kumasi Airport)</span>
-                </div>
-                <h4 className="mt-3 text-lg font-bold">Satellite Reanalysis vs. Ground Thermometer</h4>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  NASA MERRA-2 is an atmospheric reanalysis model. We cross-referenced its trend against physical thermometer observations from the nearest NOAA CDO surface station at Kumasi Airport (6.715°N, 1.591°W, elevation 287 m).
-                </p>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl border border-border bg-accent/40 p-4">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase">NASA MERRA-2 Reanalysis</p>
-                    <p className="mt-1 text-2xl font-bold text-amber-300">
-                      {formatSigned(r.trend.sen_slope_per_decade, 2)} °C <span className="text-sm font-normal text-muted-foreground">/ decade</span>
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">Continuous spatial grid · 1980–2025 · Evidence Grade {r.evidence_grade.grade}</p>
-                  </div>
-                  <div className="rounded-xl border border-border bg-accent/40 p-4">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase">Kumasi Airport Thermometer</p>
-                    <p className="mt-1 text-2xl font-bold text-emerald-400">
-                      Confirmed Warming Trend
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Physical station record shows mean temperatures rising from 27.1°C (late 1990s) to 28.5–30.3°C (2020s), confirming satellite warming.
-                    </p>
-                  </div>
-                </div>
-              </div>
             </>
           )}
         </Async>

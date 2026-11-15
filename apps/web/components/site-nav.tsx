@@ -34,9 +34,7 @@ function NavList({ pathname }: { pathname: string | null }) {
             >
               <span
                 className={`rounded-md px-2.5 py-1.5 transition-colors duration-200 ${
-                  active
-                    ? "font-bold text-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                  active ? "font-bold text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
                 {item.label}
