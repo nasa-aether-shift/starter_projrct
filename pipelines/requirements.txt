@@ -1,0 +1,16 @@
+# Ingestion-only dependencies (pipelines/ingest). The API's dependencies live in apps/api/pyproject.toml and
+# must not include these. Install with: python -m pip install -r pipelines/requirements.txt
+numpy>=2.0
+scipy>=1.11
+pyyaml>=6.0
+# Earthdata cloud OPeNDAP subsets (opendap_grid.py)
+h5py>=3.10
+requests>=2.31
+# MODIS NDVI from Microsoft Planetary Computer (planetary_ndvi.py)
+pystac-client>=0.9
+planetary-computer>=1.0
+odc-stac>=0.5
+rasterio>=1.4
+xarray>=2024.1
+# Optional whole-granule loaders in sources.py
+earthaccess>=0.9

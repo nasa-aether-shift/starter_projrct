@@ -5337,5 +5337,541 @@
     ],
     "used_by": [],
     "note": "Too sparse to compare with MERRA-2 (TAVG in 7 months); no result is computed from it. See docs/VALIDATION_REPORT.md and DECISIONS #34."
+  },
+  "grid:modis_ndvi__west_africa": {
+    "source": "Microsoft Planetary Computer STAC collection modis-13A1-061: NASA LP DAAC MOD13A1 version 061 (MODIS Terra 16-day vegetation indices, 500 m)",
+    "source_urls": [
+      "https://planetarycomputer.microsoft.com/api/stac/v1/collections/modis-13A1-061",
+      "https://lpdaac.usgs.gov/products/mod13a1v061/",
+      "https://doi.org/10.5067/MODIS/MOD13A1.061"
+    ],
+    "collection_id": "modis-13A1-061",
+    "product": "MOD13A1",
+    "dataset_version": "061",
+    "platform": "terra",
+    "variable": "500m_16_days_NDVI",
+    "quality_layer": "500m_16_days_pixel_reliability",
+    "units": "index",
+    "output_units": "index",
+    "retrieved": "2026-11-15T17:38:01+00:00",
+    "retrieval_date": "2026-11-15",
+    "code_version": "0.1.0",
+    "stac_items": 8812,
+    "bbox": [
+      -20.0,
+      0.0,
+      20.0,
+      20.0
+    ],
+    "file": "data/cache/grids/modis_ndvi__west_africa.npz",
+    "sha256": "c5712726db278c71d806f8ac6c33785ffbd3278b664f8518ea62b2381fe68d1c",
+    "missing_months": [
+      "2025-08",
+      "2025-09",
+      "2025-10"
+    ],
+    "input_files": [
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2000.npz",
+        "sha256": "5f09c82c51d425502cbfc6da7aa5f9c2a0f4fd97f7e94b599405e6f5abca4c4a"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2001.npz",
+        "sha256": "86ec7777b8ee754530efd289d87009e71173590f8c7349f86d24f06fac56287e"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2002.npz",
+        "sha256": "c0ecaee56179b0a0414f6a59dfb830e537135206faa2d0af1c80f5ab1f424ae1"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2003.npz",
+        "sha256": "6a36e3ecf653d9425b29e3d6a254bcb1ea8b3da38b5dd7bb69d8f63bc65313ab"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2004.npz",
+        "sha256": "b12bac19b6c57481dc727687a1f664628c9695561e1f86498e937eadb893c88c"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2005.npz",
+        "sha256": "7e76d4980c1236494a3414d63975e30fc04279f43eac53f1ae58ac93eecb9031"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2006.npz",
+        "sha256": "6fc3628a9df6b96c105dd21d99fb47514dc000a5039e5fd053cdcb12e9d7e524"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2007.npz",
+        "sha256": "afdafaa9763ade1943b8e51e8a1deb68bd910ca8b11fd660a20d8fdd1d3eaacf"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2008.npz",
+        "sha256": "122c63c4836540a8637d8db9514e5c13c2fce6a322f18a7bf2102f6dd2a69986"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2009.npz",
+        "sha256": "ea11f54884f824558df98dbb2e96632825f2a4e51fec73f1fc5c6ff3ac9675a6"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2010.npz",
+        "sha256": "b4de94c2502bb608dbf14d4e80e968b43dd6bb8ce9fe8dd4641d1d63f3c2b59d"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2011.npz",
+        "sha256": "39969a71ae11a8c4530d21fa28a63bfdc6f03da14afe7534b0b18e84c9cebffd"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2012.npz",
+        "sha256": "4f9b7d8fd08056244bd8089e2353e677ad179e598144204afd30d45e1712760a"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2013.npz",
+        "sha256": "563ef47ccf8264d0155397b0979ef7c513bea554260a9072da82e629d0a720cb"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2014.npz",
+        "sha256": "a1997319f24ff0bb3c78dae56c1fdacd5e746a9d3fb4d9e0048381467223ebf6"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2015.npz",
+        "sha256": "d82c1229770f2033c182c37d2be2ada6dd5af8a6b8d9a04d8f7bc74122a20bdf"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2016.npz",
+        "sha256": "81f6cb4c01bd59ecb79c39ae368cecc5105ddc2ca72f5104a0020945904af0a7"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2017.npz",
+        "sha256": "411637e2a102aa65488e2d59f68c6cd56aa26efcf303b619c7cd2fee3f5d475d"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2018.npz",
+        "sha256": "06d0beb4230d6537f1aac6e55effe2dc85757948166874ff4c2c9f0a263de8d6"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2019.npz",
+        "sha256": "f55637087f70eda6ebc4a9c16e41ea06b9b999ce12dee874ee7521f9c52bed30"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2020.npz",
+        "sha256": "4dcdb4edf2a9d7a3283bf7c2b165018e46c9ddef361741dd83b8711ad597e0d0"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2021.npz",
+        "sha256": "aa574cfaf675b068862da8cc5e93ddf5bd36b128afb70966e532b3efaae37cd9"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2022.npz",
+        "sha256": "5217627668810b618745be3bd9409a0e52611a3a1cfd4978a4ce4b9f0464b00d"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2023.npz",
+        "sha256": "f06c9b1c0b0c49f94e3b3ed4dd33dfdabc6f7f190587a917ea01d162f45c09c9"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2024.npz",
+        "sha256": "2ef66ea315b7e19a0ca80e0800fb1133102e4abeb5c5b4fa5ca2817a0c316d59"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2025.npz",
+        "sha256": "23bfd8a7c4ebb4ec70472215f6409ef3ea2e6368505d0b1b7c5b4426d3adca3f"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2000.items.json",
+        "sha256": "1cf9943f372fc72a4dfe78651bd5149f41fb44680d1cbd5d649ea654114f9494"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2001.items.json",
+        "sha256": "4f3c25da9dc08c227fe09c314f1374373605251d4ed87ee4814f689dd2e8c1d8"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2002.items.json",
+        "sha256": "53e63e4ffc8d0581d330406342a58b2c424dc7cbfd44cac87dea3c779ea48d3e"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2003.items.json",
+        "sha256": "c58ad1d63dddd8bd1b90e428988f16ab1ba7b683ba044baa8f616fc3302226d6"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2004.items.json",
+        "sha256": "69aca43c69655325874aa9221984a9d775f50a49e02c46e014b5def4389d02d6"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2005.items.json",
+        "sha256": "8c26dd7864e6e2a42cc51091712b57f2b7963f92ea96ba180ee377aa1650e50a"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2006.items.json",
+        "sha256": "f860db92f5754718874b0533e83198089229adda12cfc79b539db68976f1ef09"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2007.items.json",
+        "sha256": "8f700f6fa502753b29dd2e212d203ef1580375021a5e1360e51c88764212497c"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2008.items.json",
+        "sha256": "3c80dd3baa55c843123dd76a68a041a85220a09940ff94d543fa6b792a234269"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2009.items.json",
+        "sha256": "6fde60eae299018e2abdd184567fee04255320eaf78670137f7909ad74e896b3"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2010.items.json",
+        "sha256": "bef7088391fd26997abc07516b5cc9512a476f3e5482959e45ddb0ad6f46ee6f"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2011.items.json",
+        "sha256": "b7ae4b7e0ab95764e06e907e966975dbcbdb651d6a6220bd33665e08001717f1"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2012.items.json",
+        "sha256": "fdb96053f4f51429b8625727133967f3df39cd8fce45020a1c612aeb07b9da4f"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2013.items.json",
+        "sha256": "3932e2a05d277806d62ce380ee776d9f7f3d166b4d0c937025b2fa628a570403"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2014.items.json",
+        "sha256": "513454d520fda05103b5de64baa0014e9065c874c126ac817636a0291eeb68f8"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2015.items.json",
+        "sha256": "59e26fa9e428e9d02c3cfce1bde8511481037db39a68f55d9a4d14ae08979408"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2016.items.json",
+        "sha256": "f0530a693d904bef410b5098efb58fbb204ce92cdc3eb19c2db517a07cb2964a"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2017.items.json",
+        "sha256": "8c1b498fa52745c09579ec9265e04d9c1494c4c996e383597548d5d4fbf3dac4"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2018.items.json",
+        "sha256": "d6d5957d20fec8eed7627b6adf79bbe54153b93287696aa6dc7f96c954ad8484"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2019.items.json",
+        "sha256": "b281a08dd1a4ef7ba9a465b66f14d0c84ba48d77dd04e314f4bc1cce1f8f3809"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2020.items.json",
+        "sha256": "9e6fc8355d39effbd03d06b2635de3fd7b70b41f30a3b360e4ea465a39ad4040"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2021.items.json",
+        "sha256": "9b216cfa7cd54a259439f9dd8054ed272b5c6fddffc7b343037a7f0e802dcb32"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2022.items.json",
+        "sha256": "c6c917ca93de35e7e22473ecc04ac8399e72f31820f9abc33b63f4ac4eab3e9e"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2023.items.json",
+        "sha256": "37f28e1a8a413b1333b061f42543b891c1cc14984bbbe250a4041778c93df1cc"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2024.items.json",
+        "sha256": "599f81ae9269c35d313695bbeca22b53e252c27f93bb0e05ac095ba99cf4e189"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2025.items.json",
+        "sha256": "6d90a24e4ef1b9fe635a5c06be194ed2863cc41cf20584abfce9c7cc9ee2f7ec"
+      }
+    ],
+    "processing_steps": [
+      "STAC search of modis-13A1-061 (terra) for tiles overlapping bbox [-20.0, 0.0, 20.0, 20.0]; NDVI and 500m_16_days_pixel_reliability read from the cloud-optimised GeoTIFFs by nearest-neighbour sampling every 0.05 deg.",
+      "Kept pixel reliability [0, 1] (good, marginal); dropped NDVI fill -3000 and values outside -2000..10000; multiplied by 0.0001.",
+      "16-day composites averaged into calendar months by each composite's middle day (start + 8 days).",
+      "Averaged 10 x 10 blocks of 0.05 deg samples into 0.5 deg cells; blocks with under half their samples valid left missing."
+    ]
+  },
+  "modis_ndvi__kumasi": {
+    "source": "Microsoft Planetary Computer STAC collection modis-13A1-061: NASA LP DAAC MOD13A1 version 061 (MODIS Terra 16-day vegetation indices, 500 m)",
+    "source_urls": [
+      "https://doi.org/10.5067/MODIS/MOD13A1.061",
+      "https://lpdaac.usgs.gov/products/mod13a1v061/",
+      "https://planetarycomputer.microsoft.com/api/stac/v1/collections/modis-13A1-061"
+    ],
+    "collection_id": "modis-13A1-061",
+    "product": "MOD13A1",
+    "dataset_version": "061",
+    "platform": "terra",
+    "variable": "500m_16_days_NDVI",
+    "quality_layer": "500m_16_days_pixel_reliability",
+    "units": "index",
+    "output_units": "index",
+    "retrieved": "2026-11-15T17:38:01+00:00",
+    "retrieval_date": "2026-11-15",
+    "code_version": "0.1.0",
+    "stac_items": 8812,
+    "file": "data/raw/modis_ndvi__kumasi.areastats.csv",
+    "input_file_name": "modis_ndvi__kumasi.areastats.csv",
+    "sha256": "e72252cca22b850645065b10b6ca5caee73f4796b71bcc8a833d0dc0b7226830",
+    "bbox": [
+      -1.8,
+      6.55,
+      -1.45,
+      6.85
+    ],
+    "missing_months": [
+      "2000-05",
+      "2000-08",
+      "2000-09",
+      "2001-07",
+      "2001-08",
+      "2001-09",
+      "2002-07",
+      "2002-08",
+      "2002-09",
+      "2002-10",
+      "2003-06",
+      "2003-08",
+      "2003-09",
+      "2004-05",
+      "2004-06",
+      "2004-07",
+      "2004-08",
+      "2004-09",
+      "2005-04",
+      "2005-06",
+      "2005-07",
+      "2005-08",
+      "2005-09",
+      "2006-04",
+      "2006-07",
+      "2006-08",
+      "2006-09",
+      "2006-10",
+      "2007-04",
+      "2007-07",
+      "2007-08",
+      "2007-09",
+      "2008-05",
+      "2008-07",
+      "2008-08",
+      "2008-09",
+      "2009-07",
+      "2009-08",
+      "2009-09",
+      "2009-10",
+      "2010-05",
+      "2010-09",
+      "2010-10",
+      "2010-11",
+      "2011-04",
+      "2011-06",
+      "2011-07",
+      "2011-08",
+      "2011-09",
+      "2011-10",
+      "2012-07",
+      "2012-08",
+      "2012-09",
+      "2013-06",
+      "2013-07",
+      "2013-08",
+      "2013-09",
+      "2013-10",
+      "2014-05",
+      "2014-07",
+      "2014-08",
+      "2014-09",
+      "2014-10",
+      "2015-06",
+      "2015-07",
+      "2015-08",
+      "2015-09",
+      "2016-05",
+      "2016-06",
+      "2016-07",
+      "2016-08",
+      "2016-09",
+      "2017-04",
+      "2017-07",
+      "2017-08",
+      "2017-09",
+      "2017-10",
+      "2018-05",
+      "2018-06",
+      "2018-07",
+      "2018-09",
+      "2019-05",
+      "2019-06",
+      "2019-07",
+      "2019-08",
+      "2019-09",
+      "2020-06",
+      "2020-07",
+      "2020-08",
+      "2020-09",
+      "2020-10",
+      "2021-04",
+      "2021-06",
+      "2021-07",
+      "2021-08",
+      "2021-09",
+      "2022-04",
+      "2022-05",
+      "2022-06",
+      "2022-07",
+      "2022-08",
+      "2022-09",
+      "2023-06",
+      "2023-07",
+      "2023-08",
+      "2023-09",
+      "2023-10",
+      "2024-04",
+      "2024-06",
+      "2024-07",
+      "2024-08",
+      "2024-09",
+      "2024-10",
+      "2025-03",
+      "2025-08",
+      "2025-09",
+      "2025-10",
+      "2025-11"
+    ],
+    "n_months": 193,
+    "pixels_per_month": 6048,
+    "input_files": [
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2000.series.npz",
+        "sha256": "14aa987afe36b7dbdf92f1237cf841787e9652a1e26de0fd7fc9b6d3b8729e74"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2001.series.npz",
+        "sha256": "0408efc4893c4c50b917cf43a1b2ebd0f1a3736e8eb2ba32b835aaf78fb71d19"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2002.series.npz",
+        "sha256": "0f201c85f76d66a0fcf95602ac9cb6aafafac31c4b2e1be971ae905f5d13f10d"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2003.series.npz",
+        "sha256": "fed31917eafb13363074e89d95502d86fdc42967f7545a138ae6c9018798b7f6"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2004.series.npz",
+        "sha256": "7cb0566193f6e078d49f0370d16b7e57ed3be949f0dbef8bb140fe895618f0a6"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2005.series.npz",
+        "sha256": "87c3f796f05c669579e62d66b684a5564cb2d708eb04c1a79e0501476064be5f"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2006.series.npz",
+        "sha256": "db1c547fc36d7739e6bed2186bbd671012568f0f18ab037f5c5692062c55d5e9"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2007.series.npz",
+        "sha256": "ba91191c192945f597fa2be7a8141882eb4760171e11c8d58a137ebeb6c67da5"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2008.series.npz",
+        "sha256": "531f7fba5d325d503d252c4843813bfb0a7d4511315fcde64973dad9aed309f6"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2009.series.npz",
+        "sha256": "95ed810b6b98f1802f195fe20e8c60228de5bc5ec6fab4258f7007c8b79ac928"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2010.series.npz",
+        "sha256": "9dede969fecf4e9cd361ba2ff87434e8ebd930df2dc740a388341b4484c5d1b7"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2011.series.npz",
+        "sha256": "fb1344a7039e2ab8dc589710289067d5b392d434489caed4dbd805bac6f0d615"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2012.series.npz",
+        "sha256": "f9eeba2f3d4d14f7c8ddbe46ed0a817625d176fec5237c91fb114844e20b5c00"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2013.series.npz",
+        "sha256": "897430f4203c6d4a7ce6e24fed219e9e8ab13622e83cf242052555ba4d57a632"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2014.series.npz",
+        "sha256": "6a76c75bc63048eea0a33041323fd6d7b69c384f3c383b2c7ee205a4ed60af5c"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2015.series.npz",
+        "sha256": "21ad7a74e2d0d75ee233b190742354bb795e14fa191ec70d5a0709d83893d9e6"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2016.series.npz",
+        "sha256": "20032621e9f4d704e089e8f0c15deae2dc75348ae6429d00abe99453acc5ce01"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2017.series.npz",
+        "sha256": "d7fa2be12b047b609ce2db9a326eb80a8f8ed16f447404a1cba911442c955fb7"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2018.series.npz",
+        "sha256": "41c104d4b1dbd99137a2e984d4a1bc9f6154896877a97e65f1a520766ba4dd4e"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2019.series.npz",
+        "sha256": "6f477e6bccbd4dfc79f32fdbc704695d6d3bd8112f054763f2553151373280d9"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2020.series.npz",
+        "sha256": "f73ea61917800437207167f76a9f1072c55d9dcd24e34dd47c9be953f49ec02f"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2021.series.npz",
+        "sha256": "0f40a42cb0e3f022e233a0b5b4242cb636f5af87ab1d183806eb53256083d2a4"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2022.series.npz",
+        "sha256": "4bd1fe9b43e61229b5e60b3ad9f645ca7aee469cc1b8f9337e24def87f2bda1d"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2023.series.npz",
+        "sha256": "988a203af140c0c20ccd9a0b642614641d6fcca4c71781c38c13b0aa5ec88bf3"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2024.series.npz",
+        "sha256": "02e8979a1a02dadd4331bcbb7af2c50b94423c66e7e2566e6ef52d891a9b5e70"
+      },
+      {
+        "file": "data/raw/planetary_computer/modis_ndvi__west_africa/2025.series.npz",
+        "sha256": "230684f9429f8453f0778f2c7f86c3260c8ea0ea89b2b51558acafee6508f80d"
+      }
+    ],
+    "processing_steps": [
+      "NDVI and 500m_16_days_pixel_reliability read over the kumasi preset box [-1.8, 6.55, -1.45, 6.85] every 0.004167 deg (about one 500 m pixel per sample, 6048 samples).",
+      "Kept pixel reliability [0, 1] (good, marginal); dropped NDVI fill -3000 and values outside -2000..10000; multiplied by 0.0001.",
+      "16-day composites averaged into calendar months by each composite's middle day (start + 8 days).",
+      "Monthly area mean over the box; a month needs at least half of its samples valid, otherwise it is missing."
+    ],
+    "ingest_code_version": "0.1.0",
+    "normalized_file": "data/raw/modis_ndvi__kumasi.csv",
+    "normalized_file_sha256": "a745da4b08f9e72c550ff71a80524b83b8258a91538ee093ebf855f22b30cba1",
+    "cache_file": "data/cache/results/modis_ndvi__kumasi.json",
+    "cache_sha256": "85df32fb946a03f08cf3dee4286ca100c832d09c18052e08e0eef57a9516f00e",
+    "seed_horizon_sims": 1000
+  },
+  "map:modis_ndvi__west_africa": {
+    "source_urls": [
+      "https://doi.org/10.5067/MODIS/MOD13A1.061",
+      "https://lpdaac.usgs.gov/products/mod13a1v061/",
+      "https://planetarycomputer.microsoft.com/api/stac/v1/collections/modis-13A1-061"
+    ],
+    "source_grid": "data/cache/grids/modis_ndvi__west_africa.npz",
+    "source_grid_sha256": "c5712726db278c71d806f8ac6c33785ffbd3278b664f8518ea62b2381fe68d1c",
+    "source_retrieval_date": "2026-11-15",
+    "source_code_version": "0.1.0",
+    "cache_file": "data/cache/maps/modis_ndvi__west_africa.json",
+    "cache_sha256": "8346b0b0ef0bd60255be7a5589bd3f7168e17b2374726d64bcdb7b8df1009d49",
+    "code_version": "0.1.0",
+    "retrieval_date": "2026-11-15",
+    "max_map_cells": 10000,
+    "downsample_step": 1,
+    "fdr_level": 0.1
   }
 }

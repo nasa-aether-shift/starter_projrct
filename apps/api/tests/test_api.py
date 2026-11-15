@@ -34,8 +34,11 @@ def test_health_and_catalog(client):
     assert health["status"] == "ok"
     assert health["missing_cache_files"] == []
     ids = {v["id"] for v in client.get("/api/v1/variables").json()}
-    assert {"merra2_t2m", "gpm_precip", "modis_evi"} <= ids
-    assert "modis_ndvi" not in ids  # the AppEEARS export holds EVI; NDVI is archived until real NDVI exists
+    assert {"merra2_t2m", "gpm_precip", "modis_evi", "modis_ndvi"} <= ids
+    # The two vegetation indices must never be mixed up again (DECISIONS #33, #37).
+    sources = {vid: client.get(f"/api/v1/variables/{vid}").json()["source"]["variable"] for vid in ("modis_evi", "modis_ndvi")}
+    assert "EVI" in sources["modis_evi"] and "NDVI" not in sources["modis_evi"]
+    assert "NDVI" in sources["modis_ndvi"]
     assert client.get("/api/v1/regions/presets").json()["features"]
 
 
