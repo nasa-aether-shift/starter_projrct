@@ -315,29 +315,45 @@ const VARIABLES = [
     model_or_measurement: "measurement",
   },
   {
-    id: "modis_ndvi",
-    name: { en: "Vegetation greenness (NDVI)", tw: "Nnua mu ahabammono" },
+    id: "modis_evi",
+    name: { en: "Vegetation greenness (EVI)", tw: "Nnua mu ahabammono" },
     definition: {
-      kid: { en: "How green and leafy the plants are." },
-      student: { en: "A greenness score from 0 to 1 measured from space; higher means more healthy plants." },
-      scientist: { en: "Normalized Difference Vegetation Index from MODIS Terra monthly vegetation indices (CMG)." },
+      kid: { en: "How green and leafy the plants are, seen from space." },
+      student: {
+        en: "A greenness score measured from space, usually between 0 and 1; higher means more green, healthy leaves. It is called EVI, the Enhanced Vegetation Index.",
+      },
+      scientist: {
+        en: "Enhanced Vegetation Index (EVI) from MODIS Terra MOD13A3 version 061, layer _1_km_monthly_EVI, as the monthly area mean from a NASA AppEEARS area-statistics export. Like NDVI it compares near-infrared and red reflectance, but it also uses the blue band to reduce haze and soil-background effects, so it keeps responding over dense canopy.",
+      },
     },
     units: "index",
     source: {
-      collection: "MOD13C2",
-      version: "<verify in CMR>",
-      variable: "CMG 0.05 Deg Monthly NDVI",
+      collection: "MOD13A3",
+      version: "061",
+      variable: "_1_km_monthly_EVI",
       provider: "NASA LP DAAC",
     },
-    resolution: { spatial_deg: 0.05, temporal: "monthly" },
+    resolution: { spatial_deg: "~0.01 (1 km)", temporal: "monthly" },
     coverage: { start: "2000-02", end: "<latest>" },
     qa: { min_valid_fraction: 0.75, scale_factor: 0.0001 },
     palette_polarity: "green_is_green",
-    synonyms: ["vegetation", "green", "greener", "plants", "trees", "forest", "crops", "farming", "deforestation"],
+    synonyms: [
+      "vegetation",
+      "green",
+      "greener",
+      "plants",
+      "trees",
+      "forest",
+      "crops",
+      "farming",
+      "deforestation",
+      "evi",
+    ],
     typical_questions: ["Is the land getting greener?", "Are forests shrinking here?"],
     caveats: [
+      "January values are missing from the AppEEARS export, so each year has at most 11 months.",
       "Clouds can contaminate monthly values in the rainy season.",
-      "NDVI saturates over dense forest, so small changes there are hard to see.",
+      "EVI is less prone than NDVI to saturating over dense forest, so it shows change there better, but it is a different index and its values are not NDVI values.",
     ],
     recommended_min_years: 15,
     model_or_measurement: "measurement",
@@ -480,7 +496,7 @@ nullCore.tests.annual_mk = null;
 const nullShould = finish(
   "fixture-null-should",
   nullCore,
-  "modis_ndvi",
+  "modis_evi",
   "Ashanti Region (box) (SYNTHETIC)",
   REGION.ashanti.geometry,
 );
@@ -697,7 +713,7 @@ const gpm = makeMap(
     },
   ],
 );
-const ndvi = makeMap("modis_ndvi", 303, (la) => (la > 12 ? 0.006 : la < 8 ? -0.007 : 0), 0.003, 0.0026, [
+const evi = makeMap("modis_evi", 303, (la) => (la > 12 ? 0.006 : la < 8 ? -0.007 : 0), 0.003, 0.0026, [
   {
     name: "rising",
     lat: [12, 17],
@@ -734,7 +750,7 @@ const ndvi = makeMap("modis_ndvi", 303, (la) => (la > 12 ? 0.006 : la < 8 ? -0.0
 for (const [id, m] of [
   ["merra2_t2m", t2m],
   ["gpm_precip", gpm],
-  ["modis_ndvi", ndvi],
+  ["modis_evi", evi],
 ]) {
   write(`trend-map.${id}.west_africa.json`, m.map);
   write(`opposite-trends.${id}.west_africa.json`, m.opposite);

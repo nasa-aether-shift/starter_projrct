@@ -9,26 +9,26 @@ type Loader = () => Promise<unknown>;
 const TREND_BY_VARIABLE: Record<string, Loader> = {
   merra2_t2m: () => import("@/fixtures/trend.grade-a.json").then((m) => m.default),
   gpm_precip: () => import("@/fixtures/trend.grade-d.json").then((m) => m.default),
-  modis_ndvi: () => import("@/fixtures/trend.null-should.json").then((m) => m.default),
+  modis_evi: () => import("@/fixtures/trend.null-should.json").then((m) => m.default),
 };
 
 const RUNS: Record<string, Loader> = {
   "fixture-grade-a": TREND_BY_VARIABLE.merra2_t2m,
   "fixture-grade-d": TREND_BY_VARIABLE.gpm_precip,
-  "fixture-null-should": TREND_BY_VARIABLE.modis_ndvi,
+  "fixture-null-should": TREND_BY_VARIABLE.modis_evi,
   "fixture-point": () => import("@/fixtures/trend-at-point.json").then((m) => m.default),
 };
 
 const MAPS: Record<string, Loader> = {
   merra2_t2m: () => import("@/fixtures/trend-map.merra2_t2m.west_africa.json").then((m) => m.default),
   gpm_precip: () => import("@/fixtures/trend-map.gpm_precip.west_africa.json").then((m) => m.default),
-  modis_ndvi: () => import("@/fixtures/trend-map.modis_ndvi.west_africa.json").then((m) => m.default),
+  modis_evi: () => import("@/fixtures/trend-map.modis_evi.west_africa.json").then((m) => m.default),
 };
 
 const OPPOSITE: Record<string, Loader> = {
   merra2_t2m: () => import("@/fixtures/opposite-trends.merra2_t2m.west_africa.json").then((m) => m.default),
   gpm_precip: () => import("@/fixtures/opposite-trends.gpm_precip.west_africa.json").then((m) => m.default),
-  modis_ndvi: () => import("@/fixtures/opposite-trends.modis_ndvi.west_africa.json").then((m) => m.default),
+  modis_evi: () => import("@/fixtures/opposite-trends.modis_evi.west_africa.json").then((m) => m.default),
 };
 
 const notFound = (title: string, detail: string) => new ApiError(404, { type: "about:blank", title, detail });

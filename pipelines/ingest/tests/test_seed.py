@@ -144,3 +144,37 @@ def test_seed_manifest_bytes_do_not_depend_on_the_os(layout, monkeypatch):
     assert b"\r\n" not in (cache / "manifest.json").read_bytes()
     recorded = json.loads((cache / "manifest.json").read_text())["synthetic_variable__synthetic_region"]
     assert "\\" not in recorded["normalized_file"] + recorded["cache_file"]  # forward slashes on every OS
+
+
+def _synthetic_series(missing: list[str]) -> seed.MonthlySeries:
+    time = np.arange(np.datetime64("2000-02", "M"), np.datetime64("2004-02", "M"))  # 48 months
+    values = np.where(np.isin(time.astype(str), missing), np.nan, 1.0)
+    return seed.MonthlySeries(time, values)
+
+
+def test_missing_months_notice_is_computed_from_the_series():
+    assert seed.missing_months_notice(_synthetic_series([])) is None
+    every_january = seed.missing_months_notice(_synthetic_series(["2001-01", "2002-01", "2003-01"]))
+    assert every_january.startswith("3 of 48 months are missing: every January from 2001 to 2003.")
+    some_januaries = seed.missing_months_notice(_synthetic_series(["2001-01", "2003-01"]))
+    assert some_januaries.startswith("2 of 48 months are missing, all of them in January, between 2001 and 2003.")
+    mixed = seed.missing_months_notice(_synthetic_series(["2001-01", "2002-06"]))
+    assert mixed.startswith("2 of 48 months are missing.")
+
+
+def test_seed_series_only_rebuilds_the_named_series(layout, monkeypatch):
+    root, raw, cache = layout
+    source = raw / "synthetic_original.csv"
+    source.write_text("SYNTHETIC TEST INPUT\n")
+    entries = {}
+    for stem in ("synthetic_a__synthetic_region", "synthetic_b__synthetic_region"):
+        (raw / f"{stem}.csv").write_text("time,value\n2000-01,1.0\n")
+        entries[stem] = {"source": "https://example.invalid/synthetic-test-source", "file": str(source.relative_to(root)),
+                         "sha256": sha256(source), "retrieval_date": "2026-01-02", "code_version": "synthetic-test"}
+    (cache / "manifest.json").write_text(json.dumps(entries))
+    monkeypatch.setattr(seed, "analyze_series", lambda series, **kwargs: {"synthetic_test_result": True})
+
+    assert seed.seed_series(horizon_sims=0, only={"synthetic_b__synthetic_region"})["series_count"] == 1
+    assert [p.name for p in (cache / "results").iterdir()] == ["synthetic_b__synthetic_region.json"]
+    with pytest.raises(FileNotFoundError, match="synthetic_c__synthetic_region"):
+        seed.seed_series(horizon_sims=0, only={"synthetic_c__synthetic_region"})

@@ -1,6 +1,7 @@
 """Build API caches from locally ingested, provenance-checked NASA inputs only."""
 from __future__ import annotations
 
+import argparse
 import csv
 import datetime as dt
 import hashlib
@@ -29,6 +30,8 @@ MAX_MAP_CELLS = 10_000
 MAX_INPUT_GRID_CELLS = 25_000
 MAX_INPUT_MONTHS = 600
 PIXEL_CHUNK_SIZE = 512
+MONTH_NAMES = ("January", "February", "March", "April", "May", "June",
+               "July", "August", "September", "October", "November", "December")
 
 
 def _sha256(path: Path) -> str:
@@ -95,9 +98,14 @@ def _validate_common_provenance(entry: dict, label: str) -> tuple[list[str], str
     return urls, retrieval_date
 
 
-def _series_inputs() -> list[tuple[Path, dict, list[str], str]]:
+def _series_inputs(only: set[str] | None = None) -> list[tuple[Path, dict, list[str], str]]:
     entries = _manifest()
     paths = sorted(p for p in RAW.glob("*__*.csv") if not p.name.endswith(".giovanni.csv"))
+    if only is not None:
+        unknown = only - {p.stem for p in paths}
+        if unknown:
+            raise FileNotFoundError(f"No normalized series in {RAW} for: {', '.join(sorted(unknown))}.")
+        paths = [p for p in paths if p.stem in only]
     if not paths:
         raise FileNotFoundError(f"No normalized real monthly series found in {RAW}.")
     sources = []
@@ -147,13 +155,33 @@ def _windows_peak_working_set() -> int:
     return int(counters.PeakWorkingSetSize)
 
 
-def seed_series(horizon_sims: int = 1000) -> dict[str, float | int]:
+def missing_months_notice(series: MonthlySeries) -> str | None:
+    """Plain-language data-quality notice computed from the series: how many months between the first and
+    last month have no value, and which calendar month they fall in when they all share one."""
+    full = np.arange(series.time[0], series.time[-1] + np.timedelta64(1, "M"))
+    valid = set(series.time[np.isfinite(series.values)].astype(int).tolist())
+    missing = [int(m) for m in full.astype(int) if int(m) not in valid]
+    if not missing:
+        return None
+    text = f"{len(missing)} of {len(full)} months are missing"
+    calendar_months = {m % 12 for m in missing}
+    if len(calendar_months) == 1:
+        month = MONTH_NAMES[calendar_months.pop()]
+        years = [1970 + m // 12 for m in missing]
+        if years == list(range(years[0], years[-1] + 1)):
+            text += f": every {month} from {years[0]} to {years[-1]}" if len(years) > 1 else f": {month} {years[0]}"
+        else:
+            text += f", all of them in {month}, between {years[0]} and {years[-1]}"
+    return f"{text}. Missing months are left out of the tests, never filled."
+
+
+def seed_series(horizon_sims: int = 1000, only: set[str] | None = None) -> dict[str, float | int]:
     started = time.perf_counter()
     before = _peak_rss_bytes()
     out_dir = CACHE / "results"
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest = _manifest()
-    sources = _series_inputs()
+    sources = _series_inputs(only)
     built = 0
     for path, entry, urls, retrieval_date in sources:
         with path.open(newline="", encoding="utf-8") as stream:
@@ -168,6 +196,9 @@ def seed_series(horizon_sims: int = 1000) -> dict[str, float | int]:
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(f"Invalid normalized monthly series: {path}") from exc
         result = analyze_series(series, horizon_sims=horizon_sims)
+        notice = missing_months_notice(series)
+        if notice and isinstance(result.get("data_quality"), dict):
+            result["data_quality"]["notices"].append(notice)
         output_path = out_dir / f"{path.stem}.json"
         output_path.write_text(json.dumps(result, allow_nan=False, separators=(",", ":")), encoding="utf-8", newline="")
         manifest[path.stem] = {
@@ -303,7 +334,14 @@ def seed_maps(q: float = 0.10, max_cells: int = MAX_MAP_CELLS) -> dict[str, floa
             "peak_memory_bytes": max(before, _peak_rss_bytes())}
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--series", action="append", metavar="STEM",
+                        help="rebuild only this normalized series, e.g. modis_evi__kumasi (repeatable; maps are skipped)")
+    args = parser.parse_args(argv)
+    if args.series:
+        print(json.dumps({"series": seed_series(only=set(args.series))}, indent=2))
+        return
     overall_start = time.perf_counter()
     series = seed_series()
     maps = seed_maps()

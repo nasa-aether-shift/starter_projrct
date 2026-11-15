@@ -93,7 +93,7 @@ yellow strip at the top of every page is there to stop that.
 | ----------------------------------------------------- | ------------------------------------------------------- |
 | `POST /trend` with `merra2_t2m`                       | `trend.grade-a.json`: Grade A, all SHOULD fields set    |
 | `POST /trend` with `gpm_precip`                       | `trend.grade-d.json`: Grade D, change-point, horizon    |
-| `POST /trend` with `modis_ndvi`                       | `trend.null-should.json`: every SHOULD field `null`     |
+| `POST /trend` with `modis_evi`                        | `trend.null-should.json`: every SHOULD field `null`     |
 | `POST /trend-at-point`                                | `trend-at-point.json`                                   |
 | `GET /trend-map/{v}/west_africa`                      | `trend-map.{v}.west_africa.json`                        |
 | `GET /opposite-trends/{v}/west_africa`                | `opposite-trends.{v}.west_africa.json`                  |
@@ -137,7 +137,7 @@ With fixtures on, try `/analysis/fixture-grade-a`, `/analysis/fixture-grade-d`, 
 
 - `POST /trend` ignores `bbox`, `start`, `end`; drawn boxes get 404. `region.area_km2` is not sent.
 - Errors are wrapped as `{"detail": {type,title,detail}}`; web handles both, the contract says top level.
-- Verdict template prints `degC` (not °C) and rounds to 2 decimals, so NDVI reads "−0.01 (−0.01 to −0.00)".
+- Verdict template prints `degC` (not °C) and rounds to 2 decimals, so EVI reads "−0.01 (−0.01 to −0.00)".
 - Runs live in memory: after a restart `/runs/{id}` 404s. Web re-runs from the URL when it can.
 - `/variables/search` and `/compare` are not implemented; web falls back to keyword matching.
 - Catalog `source.version` still says `<verify in CMR>` and is shown in the provenance panel.

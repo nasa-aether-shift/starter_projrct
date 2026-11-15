@@ -25,7 +25,7 @@ const checks: [string, z.ZodType][] = [
   ["trend.null-should.json", trendResultSchema],
   ["trend-at-point.json", trendResultSchema],
   ["narrative.json", narrativeSchema],
-  ...["merra2_t2m", "gpm_precip", "modis_ndvi"].flatMap((v): [string, z.ZodType][] => [
+  ...["merra2_t2m", "gpm_precip", "modis_evi"].flatMap((v): [string, z.ZodType][] => [
     [`trend-map.${v}.west_africa.json`, trendMapSchema],
     [`opposite-trends.${v}.west_africa.json`, oppositeTrendsSchema],
   ]),

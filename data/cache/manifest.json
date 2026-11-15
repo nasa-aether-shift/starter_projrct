@@ -5249,12 +5249,16 @@
     "downsample_step": 1,
     "fdr_level": 0.1
   },
-  "modis_ndvi__kumasi": {
+  "modis_evi__kumasi": {
     "source": "https://appeears.earthdatacloud.nasa.gov/",
+    "source_urls": [
+      "https://appeears.earthdatacloud.nasa.gov/"
+    ],
+    "product": "MOD13A3",
+    "dataset_version": "061",
+    "layer": "_1_km_monthly_EVI",
     "file": "data/raw/MOD13A3-061-Statistics.csv",
     "input_file_name": "MOD13A3-061-Statistics.csv",
-    "cache_file": "data/cache/results/modis_ndvi__kumasi.json",
-    "dataset_version": "061",
     "sha256": "6ff3503f43714bde8dbbd7aa57c1ed00a75e613a9238ce00604f4765db04701f",
     "retrieved": "2026-11-15T11:26:30+00:00",
     "retrieval_date": "2026-11-15",
@@ -5262,17 +5266,76 @@
     "units": "index",
     "output_units": "index",
     "processing_steps": [
-      "Extracted 1 km monthly vegetation index (MOD13A3.061) area statistics for Kumasi box via AppEEARS.",
-      "Extracted monthly mean over Kumasi polygon (-1.80, 6.55 to -1.45, 6.85)."
+      "Monthly area mean (column Mean) of MOD13A3.061 layer _1_km_monthly_EVI from a NASA AppEEARS area-statistics export.",
+      "Area: Kumasi polygon (-1.80, 6.55 to -1.45, 6.85), as recorded when the export was requested; the export file itself does not name the polygon.",
+      "Values used as exported; they are already on the index scale (no further scale factor applied).",
+      "26 months absent from the export were left missing (never filled)."
+    ],
+    "missing_months": [
+      "2001-01",
+      "2002-01",
+      "2003-01",
+      "2004-01",
+      "2005-01",
+      "2006-01",
+      "2007-01",
+      "2008-01",
+      "2009-01",
+      "2010-01",
+      "2011-01",
+      "2012-01",
+      "2013-01",
+      "2014-01",
+      "2015-01",
+      "2016-01",
+      "2017-01",
+      "2018-01",
+      "2019-01",
+      "2020-01",
+      "2021-01",
+      "2022-01",
+      "2023-01",
+      "2024-01",
+      "2025-01",
+      "2026-01"
     ],
     "n_months": 295,
-    "source_urls": [
-      "https://appeears.earthdatacloud.nasa.gov/"
-    ],
     "ingest_code_version": "0.1.0",
-    "normalized_file": "data/raw/modis_ndvi__kumasi.csv",
-    "normalized_file_sha256": "198a45d3b74d0215cc6b1ab6dda69049d670c909cdca07875d9266e84b8bc929",
-    "cache_sha256": "b03f9c0f1f8521eb1dd6550edfeb3d70bfe3ebead229c4cdb3e6e705d8354128",
+    "normalized_file": "data/raw/modis_evi__kumasi.csv",
+    "normalized_file_sha256": "497a4d20c407376082330d5161ea50a2386e33c8b472a588bd2d3569be940974",
+    "cache_file": "data/cache/results/modis_evi__kumasi.json",
+    "cache_sha256": "a01a208e5e6c90df6334d75a3a86f77e5a5ae068c7c8d45b9b613f0444dc1c58",
     "seed_horizon_sims": 1000
+  },
+  "station:GHM00065442": {
+    "source": "https://www.ncei.noaa.gov/cdo-web/",
+    "source_urls": [
+      "https://www.ncei.noaa.gov/cdo-web/"
+    ],
+    "dataset": "NOAA NCEI Climate Data Online, Global Summary of the Month (GSOM) CSV",
+    "station_id": "GHM00065442",
+    "station_name": "KUMASI, GH",
+    "latitude": 6.715,
+    "longitude": -1.591,
+    "elevation_m": 287.1,
+    "file": "data/raw/GHM00065442.csv",
+    "input_file_name": "GHM00065442.csv",
+    "sha256": "8506a8e9c1849cee50df145ea70726e3e9dc936aee954379c83675b64448ce81",
+    "retrieval_date": null,
+    "retrieval_note": "Not recorded: the export carries no timestamp; the file was added to data/raw/ on 2026-11-15.",
+    "rows": 14,
+    "first_month": "1997-04",
+    "last_month": "2025-07",
+    "tavg_months": [
+      "1997-05",
+      "1997-06",
+      "2018-01",
+      "2019-02",
+      "2023-12",
+      "2024-02",
+      "2025-06"
+    ],
+    "used_by": [],
+    "note": "Too sparse to compare with MERRA-2 (TAVG in 7 months); no result is computed from it. See docs/VALIDATION_REPORT.md and DECISIONS #34."
   }
 }

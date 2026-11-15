@@ -33,11 +33,11 @@ const META: Record<string, VariableMeta> = {
     polarity: "wet_is_blue",
     caption: "Where rain is increasing or decreasing",
   },
-  modis_ndvi: {
+  modis_evi: {
     short: "Greenness",
     Icon: Leaf,
     accent: "#5ab4ac",
-    program: "MODIS NDVI",
+    program: "MODIS EVI",
     polarity: "green_is_green",
     caption: "Where plants are getting greener or browner",
   },
