@@ -1,0 +1,21 @@
+id: modis_ndvi
+name: {en: Vegetation greenness (NDVI), tw: Nnua mu ahabammono}   # Twi to be reviewed
+definition:
+  kid: {en: How green and leafy the plants are, seen from space.}
+  student: {en: "A greenness score measured from space, from about 0 for bare ground to almost 1 for thick green leaves. It is called NDVI, the Normalized Difference Vegetation Index."}
+  scientist: {en: "Normalized Difference Vegetation Index from MODIS Terra MOD13A1 version 061 (16-day composites, 500 m, layer 500m_16_days_NDVI), read through the Microsoft Planetary Computer STAC collection modis-13A1-061; good and marginal pixels only, composites averaged into calendar months."}
+units: index
+source: {collection: MOD13A1, version: "061", variable: 500m_16_days_NDVI, provider: NASA LP DAAC (via Microsoft Planetary Computer)}  # verified, see docs/VERIFIED.md
+resolution: {spatial_deg: "0.5 (map); Kumasi series from 500 m pixels", temporal: monthly}
+coverage: {start: 2000-02, end: "<latest>"}
+qa: {min_valid_fraction: 0.5, scale_factor: 0.0001, keep_pixel_reliability: [0, 1]}
+palette_polarity: green_is_green
+synonyms: [vegetation, green, greener, plants, trees, forest, crops, farming, deforestation, ndvi]
+typical_questions: ["Is the land getting greener?", "Are forests shrinking here?"]
+caveats:
+  - Monthly values are averages of 16-day composites, grouped by each composite's middle day.
+  - Cloudy, snow and fill pixels are dropped, so rainy-season months rest on fewer pixels.
+  - Each 0.5° map cell averages 100 sampled 500 m pixels (one every 0.05°), not every pixel; the Kumasi series uses every pixel in the box.
+  - NDVI saturates over dense forest, so small changes there are hard to see; the Kumasi EVI series is less affected.
+recommended_min_years: 15
+model_or_measurement: measurement
