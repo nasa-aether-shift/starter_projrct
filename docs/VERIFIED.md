@@ -6,14 +6,17 @@ Check each dataset in NASA's CMR (https://cmr.earthdata.nasa.gov) or Earthdata S
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | merra2_t2m | M2TMNXSLV | M2TMNXSLV 5.12.4 | 5.12.4 | T2M (2 m air temperature) | K | Kumasi series 2005-01 to 2025-12; collection 1980-01 to 2025-12 (552 monthly granules in CMR) | Giovanni area-averaged export (Kumasi); Earthdata cloud OPeNDAP subset (West Africa grid) | Backend team / 2026-11-14 |
 | gpm_precip | GPM_3IMERGM | GPM_3IMERGM | 07 | precipitation (`/Grid/precipitation`, dimensions time, lon, lat) | mm/hr | 2000-06 to 2025-09 (304 monthly granules in CMR on 2026-11-14; later Final Run months not yet published) | Earthdata cloud OPeNDAP subset (West Africa grid) | Backend / 2026-11-14 |
-| modis_ndvi | MOD13C2 | | | | | | | |
+| modis_ndvi | MOD13C2 | MOD13A3 | 061 | 1 km monthly vegetation index (NDVI) | index | Kumasi series 2000-02 to 2026-10 (295 monthly records) | NASA AppEEARS area statistics export (Kumasi polygon: -1.80, 6.55 to -1.45, 6.85) | Team / 2026-11-15 |
 | (SHOULD) modis_lst | MOD11C3 | | | | | | | |
 | (SHOULD) omi_no2 | OMNO2d | | | | | | | |
 | fallback | NASA POWER T2M / PRECTOTCORR | | n/a | | | | | |
 
-## Ground-station check (SHOULD)
+## Ground-station check (SHOULD) — not completed
 
 Nearest NOAA Climate Data Online station to Kumasi: name, ID, years available, and how its trend compares with MERRA-2.
+
+- Candidate station (not verified here): KUMASI, GH, GHCND `GHM00065442` (Kumasi Airport).
+- The station data file is not in the repository, and no trend test has been run on it, so there is no comparison with MERRA-2 to report yet.
 
 ## NASA metadata checked
 
@@ -22,5 +25,7 @@ Nearest NOAA Climate Data Online station to Kumasi: name, ID, years available, a
 - GPM IMERG OPeNDAP metadata (DMR) for one granule: `/Grid/precipitation` is Float32 with dimensions (time 1, lon 3600, lat 1800), units `mm/hr`, `_FillValue` -9999.9, LongName "Merged microwave-infrared-gauge precipitation estimate". Source: https://opendap.earthdata.nasa.gov/collections/C2723754851-GES_DISC/granules/GPM_3IMERGM.07%3A3B-MO.MS.MRG.3IMERG.20000601-S000000-E235959.06.V07B.HDF5.dmr (checked 2026-11-14).
 - CMR collection GPM_3IMERGM version 07: "GPM IMERG Final Precipitation L3 1 month 0.1 degree x 0.1 degree V07 (GPM_3IMERGM)", DOI 10.5067/GPM/IMERG/3B-MONTH/07. Source: https://cmr.earthdata.nasa.gov/search/collections.umm_json?short_name=GPM_3IMERGM&version=07 (checked 2026-11-14).
 - CMR granule counts and sizes: M2TMNXSLV 5.12.4 has 552 monthly granules for 1980-01 to 2025-12 (about 30.8 GB as whole files); GPM_3IMERGM 07 has 304 monthly granules, 2000-06 to 2025-09, when queried for 2000-06 to 2025-12 (about 5.3 GB). Source: https://cmr.earthdata.nasa.gov/search/granules.json (checked 2026-11-14).
+- CMR collection MOD13A3 version 061: "MODIS/Terra Vegetation Indices Monthly L3 Global 1km SIN Grid V061", DOI 10.5067/MODIS/MOD13A3.061, provider LPCLOUD, record starts 2000-02-01. Source: https://cmr.earthdata.nasa.gov/search/collections.umm_json?short_name=MOD13A3&version=061 (checked 2026-11-15).
+- **Not verified:** the AppEEARS export behind `modis_ndvi__kumasi` (`data/raw/MOD13A3-061-Statistics.csv`) is not in the repository, so its SHA-256 could not be re-checked.
 - **Not verified:** whether the monthly GPM `precipitation` value is a mean rate over the month. Neither the DMR nor the CMR abstract says so, so it is not converted to mm/month. The grid uses mm/day (the same rate multiplied by 24); see DECISIONS #30.
 - The provided Giovanni export identifies the requested variable as `M2TMNXSLV_5_12_4_T2M` and records the user bounding box `-1.8,6.55,-1.45,6.85`; its reproducibility URL is in the CSV metadata. File supplied by the human and retrieved 2026-11-14. NASA Giovanni documents the bbox order as west, south, east, north: https://giovanni.gsfc.nasa.gov/giovanni/doc/UsersManualworkingdocument.docx.html (checked 2026-11-14).
