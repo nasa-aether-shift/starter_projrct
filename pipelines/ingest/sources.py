@@ -51,14 +51,14 @@ def _write_raw(variable: str, region: str, time: np.ndarray, values: np.ndarray,
     manifest[f"{variable}__{region}"] = {
         **source,
         "source_urls": source_urls,
-        "file": str(path.relative_to(ROOT)),
+        "file": path.relative_to(ROOT).as_posix(),
         "sha256": digest,
         "retrieved": retrieved,
         "retrieval_date": retrieved[:10],
         "code_version": CODE_VERSION,
         "n_months": int(len(values)),
     }
-    MANIFEST.write_text(json.dumps(manifest, indent=2))
+    MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="")
     return path
 
 
@@ -191,15 +191,15 @@ def fetch_grid_earthaccess(
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
     retrieved = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     input_files = [{
-        "file": str(Path(fp).resolve().relative_to(ROOT.resolve())),
+        "file": Path(fp).resolve().relative_to(ROOT.resolve()).as_posix(),
         "sha256": _sha256_file(Path(fp)),
     } for fp in files]
     manifest[f"grid:{variable_id}__{region}"] = {
         "source": f"NASA Earthdata {short_name}", "source_urls": source_urls,
         "variable": var_name, "bbox": bbox, "granules": len(files),
         "input_files": input_files,
-        "file": str(out.relative_to(ROOT)), "sha256": _sha256_file(out),
+        "file": out.relative_to(ROOT).as_posix(), "sha256": _sha256_file(out),
         "retrieved": retrieved, "retrieval_date": retrieved[:10], "code_version": CODE_VERSION,
     }
-    MANIFEST.write_text(json.dumps(manifest, indent=2))
+    MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="")
     return out

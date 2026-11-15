@@ -1,0 +1,4 @@
+# Checksummed data: data/cache/manifest.json records SHA-256 values of these files, so Git must
+# keep their exact bytes on every OS (no CRLF conversion on Windows checkouts).
+data/raw/** -text
+data/cache/** -text

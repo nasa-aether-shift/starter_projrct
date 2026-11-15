@@ -333,3 +333,38 @@ def test_numeric_guard_rejects_invented_numbers():
     assert numeric_guard("Warming about 0.30 °C per decade since 1995, 95% range 0.25 to 0.35.", result)[0]
     ok, bad = numeric_guard("Warming 0.9 °C per decade, 3 times faster than 2050.", result)
     assert not ok and "0.9" in bad
+
+
+def test_unavailable_data_messages_are_written_for_people(client, monkeypatch):
+    monkeypatch.setattr(m, "USE_FIXTURES", False)
+    responses = [
+        client.post("/api/v1/trend", json={"variable_id": "gpm_precip", "region_id": "kumasi"}),
+        client.post("/api/v1/trend-at-point", json={
+            "variable_id": "gpm_precip", "region_id": "west_africa", "lat": 6.7, "lon": -1.6,
+        }),
+        client.post("/api/v1/trend", json={"variable_id": "gpm_precip", "region_id": None, "bbox": [-2.6, 5.8, -0.2, 7.7]}),
+        client.get("/api/v1/trend-map/gpm_precip/west_africa"),
+        client.get("/api/v1/opposite-trends/gpm_precip/west_africa"),
+    ]
+    for response in responses:
+        assert response.status_code == 404
+        problem = response.json()["detail"]
+        assert problem["title"] == "Not available yet"
+        text = f"{problem['title']} {problem['detail']}".lower()
+        for jargon in ("make seed", "cache", "npz", "ingest", "earthaccess", "__"):
+            assert jargon not in text, (jargon, text)
+        assert "rainfall" in text
+
+
+def test_verdict_template_uses_degree_sign_and_no_negative_zero():
+    from app.ai import verdict_template
+
+    # SYNTHETIC result values for a wording test; not a real analysis.
+    result = {"period": {"start": "2005-01", "end": "2025-12"},
+              "trend": {"direction": "no_significant_trend", "sen_slope_per_decade": 0.1234, "ci95_per_decade": [-0.0012, 0.2468]},
+              "tests": {"modified_mk": {"p": 0.41}},
+              "evidence_grade": {"grade": "D", "label": "No significant trend"}}
+    variable = {"id": "merra2_t2m", "name": {"en": "Air temperature"}, "units": "degC", "model_or_measurement": "model"}
+    sentences = verdict_template(result, variable, "Kumasi")
+    assert sentences["how_much"] == "About +0.12 °C per decade (95% range 0.00 to +0.25)."
+    assert numeric_guard(" ".join(sentences.values()), result)[0]

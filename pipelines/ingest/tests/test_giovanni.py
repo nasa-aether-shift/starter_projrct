@@ -236,3 +236,32 @@ def test_inspection_prints_dataset_and_variable_attributes(tmp_path, monkeypatch
     assert "sample: dimensions=('time', 'lat'), shape=(2, 3)" in output
     assert f"units={TEST_UNITS!r}" in output
     assert "long_name" in output
+
+
+def test_source_url_tracking_parameters_are_removed_from_manifest(tmp_path):
+    # SYNTHETIC reproducibility link pasted with tracking parameters; only those parameters are dropped.
+    url = "https://giovanni.gsfc.nasa.gov/giovanni/?portal=GIOVANNI&utm_source=chatgpt.com&utm_medium=x#service=ArAvTs&bbox=-1.8,6.55,-1.45,6.85"
+    path = _write_csv(tmp_path / "input.csv", source_line=f"# Source: {url}\n")
+    _import(path, tmp_path)
+    entry = json.loads((tmp_path / "cache" / "manifest.json").read_text())["test_variable__test_region"]
+    assert entry["source"] == "https://giovanni.gsfc.nasa.gov/giovanni/?portal=GIOVANNI#service=ArAvTs&bbox=-1.8,6.55,-1.45,6.85"
+
+
+def test_written_files_have_the_same_bytes_on_every_os(tmp_path):
+    # Checksummed outputs must not depend on the OS newline (Windows would turn "\n" into "\r\n").
+    _import(_write_csv(tmp_path / "input.csv"), tmp_path)
+    assert b"\r\n" not in (tmp_path / "cache" / "manifest.json").read_bytes()
+    normalized = next((tmp_path / "raw").glob("*__*.csv")).read_bytes()
+    assert normalized.startswith(b"time,value\r\n")  # csv module row ending, unchanged
+    assert b"\r\r\n" not in normalized
+
+
+def test_manifest_paths_use_forward_slashes_on_every_os(tmp_path, monkeypatch):
+    # Paths recorded on Windows must still resolve on Linux (CI, Render).
+    import pipelines.ingest.giovanni as giovanni
+
+    monkeypatch.setattr(giovanni, "ROOT", tmp_path)
+    _import(_write_csv(tmp_path / "input.csv"), tmp_path)
+    entry = json.loads((tmp_path / "cache" / "manifest.json").read_text())["test_variable__test_region"]
+    assert entry["file"] == "raw/test_variable__test_region.giovanni.csv"
+    assert entry["cache_file"] == "cache/results/test_variable__test_region.json"

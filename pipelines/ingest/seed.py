@@ -6,7 +6,6 @@ import datetime as dt
 import hashlib
 import json
 import os
-import resource
 import sys
 import time
 import zipfile
@@ -63,7 +62,7 @@ def _manifest() -> dict:
 def _write_manifest(data: dict) -> None:
     path = CACHE / "manifest.json"
     tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(data, indent=2, allow_nan=False), encoding="utf-8")
+    tmp.write_text(json.dumps(data, indent=2, allow_nan=False), encoding="utf-8", newline="")
     tmp.replace(path)
 
 
@@ -115,8 +114,37 @@ def _series_inputs() -> list[tuple[Path, dict, list[str], str]]:
 
 
 def _peak_rss_bytes() -> int:
+    if sys.platform == "win32":
+        return _windows_peak_working_set()
+    import resource  # Unix only; imported here so `make seed` also runs on Windows
+
     value = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return int(value if sys.platform == "darwin" else value * 1024)
+
+
+def _windows_peak_working_set() -> int:
+    """Peak working set of this process in bytes, via the Win32 API (no extra dependency)."""
+    import ctypes
+    from ctypes import wintypes
+
+    class _Counters(ctypes.Structure):
+        _fields_ = [
+            ("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+            ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+            ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+            ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+            ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t),
+        ]
+
+    kernel32 = ctypes.WinDLL("kernel32")
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.K32GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Counters), wintypes.DWORD]
+    kernel32.K32GetProcessMemoryInfo.restype = wintypes.BOOL
+    counters = _Counters()
+    counters.cb = ctypes.sizeof(counters)
+    if not kernel32.K32GetProcessMemoryInfo(kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+        raise OSError("GetProcessMemoryInfo failed")
+    return int(counters.PeakWorkingSetSize)
 
 
 def seed_series(horizon_sims: int = 1000) -> dict[str, float | int]:
@@ -141,16 +169,16 @@ def seed_series(horizon_sims: int = 1000) -> dict[str, float | int]:
             raise ValueError(f"Invalid normalized monthly series: {path}") from exc
         result = analyze_series(series, horizon_sims=horizon_sims)
         output_path = out_dir / f"{path.stem}.json"
-        output_path.write_text(json.dumps(result, allow_nan=False, separators=(",", ":")), encoding="utf-8")
+        output_path.write_text(json.dumps(result, allow_nan=False, separators=(",", ":")), encoding="utf-8", newline="")
         manifest[path.stem] = {
             **entry,
             "source_urls": urls,
             "retrieval_date": retrieval_date,
             "ingest_code_version": entry.get("code_version"),
             "code_version": CODE_VERSION,
-            "normalized_file": str(path.relative_to(ROOT)),
+            "normalized_file": path.relative_to(ROOT).as_posix(),
             "normalized_file_sha256": _sha256(path),
-            "cache_file": str(output_path.relative_to(ROOT)),
+            "cache_file": output_path.relative_to(ROOT).as_posix(),
             "cache_sha256": _sha256(output_path),
             "seed_horizon_sims": horizon_sims,
         }
@@ -253,14 +281,14 @@ def seed_maps(q: float = 0.10, max_cells: int = MAX_MAP_CELLS) -> dict[str, floa
             },
         }
         output_path = out_dir / f"{path.stem}.json"
-        output_path.write_text(json.dumps(payload, allow_nan=False, separators=(",", ":")), encoding="utf-8")
+        output_path.write_text(json.dumps(payload, allow_nan=False, separators=(",", ":")), encoding="utf-8", newline="")
         entries[f"map:{path.stem}"] = {
             "source_urls": urls,
-            "source_grid": str(path.relative_to(ROOT)),
+            "source_grid": path.relative_to(ROOT).as_posix(),
             "source_grid_sha256": _sha256(path),
             "source_retrieval_date": retrieval_date,
             "source_code_version": source["code_version"],
-            "cache_file": str(output_path.relative_to(ROOT)),
+            "cache_file": output_path.relative_to(ROOT).as_posix(),
             "cache_sha256": _sha256(output_path),
             "code_version": CODE_VERSION,
             "retrieval_date": retrieval_date,
