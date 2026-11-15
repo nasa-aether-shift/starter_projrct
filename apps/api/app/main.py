@@ -14,10 +14,10 @@ from typing import Any, Literal
 
 import numpy as np
 import yaml
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "packages" / "stats_engine"))
@@ -25,6 +25,8 @@ from stats_engine import MonthlySeries, analyze_series, cell_weights, regional_s
 
 from .ai import rewrite, verdict_template  # noqa: E402
 from .opposite import opposite_detail, opposite_sentence  # noqa: E402
+from .ratelimit import RateLimiter  # noqa: E402
+from .search import VariableSearch, load_encoder  # noqa: E402
 
 CODE_VERSION = os.getenv("CODE_VERSION", "0.1.0")
 CACHE = ROOT / "data" / "cache"
@@ -41,7 +43,11 @@ def validate_startup_config() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    global SEARCH
     validate_startup_config()
+    encoder = load_encoder()
+    if encoder is not None:  # embed the catalog once at startup
+        SEARCH = VariableSearch(CATALOG, encoder)
     yield
 
 app = FastAPI(title="Earth Data Detective API", version=CODE_VERSION, lifespan=lifespan)
@@ -59,6 +65,17 @@ RUNS: dict[str, dict[str, Any]] = {}
 RUN_ID_PREFIX = "r1_"
 COORD_TOLERANCE = 1e-6  # degrees; absorbs float32 rounding in cached grid coordinates
 RUN_ID_MAX_LENGTH = 256
+SEARCH = VariableSearch(CATALOG)  # keyword search; lifespan adds embeddings when EMBEDDING_MODEL is set
+LIMITER = RateLimiter(int(os.getenv("RATE_LIMIT_PER_MINUTE", "30")))
+
+
+def rate_limit(request: Request) -> None:
+    """429 once a client has made RATE_LIMIT_PER_MINUTE requests to this endpoint in the last minute."""
+    wait = LIMITER.check(request.url.path, request.client.host if request.client else "unknown")
+    if wait is not None:
+        raise HTTPException(status_code=429, headers={"Retry-After": str(wait)}, detail={
+            "type": "about:blank", "title": "Too many requests",
+            "detail": f"Too many requests from this address. Please wait {wait} seconds and try again."})
 
 
 class TrendRequest(BaseModel):
@@ -81,6 +98,12 @@ class NarrativeRequest(BaseModel):
     run_id: str
     level: Literal["kid", "student"] = "student"
     use_ai: bool = True
+
+
+class SearchRequest(BaseModel):
+    # The web client sends `query`; both names are accepted.
+    question: str = Field(..., min_length=1, max_length=300, validation_alias=AliasChoices("question", "query"))
+    lang: Literal["en", "tw"] = "en"
 
 
 def problem(status: int, title: str, detail: str) -> HTTPException:
@@ -247,6 +270,12 @@ def health() -> dict[str, Any]:
 @app.get("/api/v1/variables")
 def variables() -> list[dict[str, Any]]:
     return list(CATALOG.values())
+
+
+@app.post("/api/v1/variables/search", dependencies=[Depends(rate_limit)])
+def variables_search(req: SearchRequest) -> dict[str, Any]:
+    """Top 3 cached variables for a question, each with a score and a one-line reason from the catalog."""
+    return {"results": SEARCH.search(req.question, req.lang, CACHE)}
 
 
 @app.get("/api/v1/variables/{vid}")
@@ -546,7 +575,7 @@ def opposite(vid: str, region_id: str) -> dict[str, Any]:
     return {**block, **detail, "sentence": opposite_sentence(detail, block["found"], CATALOG[vid]["palette_polarity"])}
 
 
-@app.post("/api/v1/narrative")
+@app.post("/api/v1/narrative", dependencies=[Depends(rate_limit)])
 def narrative(req: NarrativeRequest) -> dict[str, Any]:
     run = _resolve_run(req.run_id)
     if run["variable"]["id"] not in CATALOG:  # synthetic fixture
