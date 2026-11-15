@@ -14,13 +14,24 @@ import csv
 import datetime as dt
 import hashlib
 import json
+import os
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "data" / "raw"
 MANIFEST = ROOT / "data" / "cache" / "manifest.json"
+CODE_VERSION = os.getenv("CODE_VERSION", "0.1.0")
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _write_raw(variable: str, region: str, time: np.ndarray, values: np.ndarray, source: dict) -> Path:
@@ -31,17 +42,23 @@ def _write_raw(variable: str, region: str, time: np.ndarray, values: np.ndarray,
         w.writerow(["time", "value"])
         for t, v in zip(time, values):
             w.writerow([str(t), "" if not np.isfinite(v) else f"{v:.6f}"])
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = _sha256_file(path)
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    retrieved = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    source_url = source.get("source_url") or source.get("url")
+    source_urls = source.get("source_urls") or ([source_url] if isinstance(source_url, str) else [])
     manifest[f"{variable}__{region}"] = {
         **source,
-        "file": str(path.relative_to(ROOT)),
+        "source_urls": source_urls,
+        "file": path.relative_to(ROOT).as_posix(),
         "sha256": digest,
-        "retrieved": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "retrieved": retrieved,
+        "retrieval_date": retrieved[:10],
+        "code_version": CODE_VERSION,
         "n_months": int(len(values)),
     }
-    MANIFEST.write_text(json.dumps(manifest, indent=2))
+    MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="")
     return path
 
 
@@ -119,6 +136,7 @@ def fetch_grid_earthaccess(
     variable_id: str, region: str, short_name: str, var_name: str,
     bbox: tuple[float, float, float, float], start: str, end: str,
     scale: float = 1.0, offset: float = 0.0,
+    source_urls: list[str] | None = None,
 ) -> Path:
     """Download monthly granules for bbox=(west, south, east, north) and save a cube as .npz.
 
@@ -132,6 +150,22 @@ def fetch_grid_earthaccess(
 
     earthaccess.login(strategy="environment")
     results = earthaccess.search_data(short_name=short_name, temporal=(start, end), bounding_box=bbox)
+    if source_urls is None:
+        discovered_urls = []
+        for result in results:
+            links = getattr(result, "data_links", None)
+            if callable(links):
+                links = links()
+            if not isinstance(links, (list, tuple)):
+                continue
+            for link in links:
+                href = link.get("href") if isinstance(link, dict) else link
+                if isinstance(href, str) and urlsplit(href).scheme == "https":
+                    parts = urlsplit(href)
+                    discovered_urls.append(urlunsplit((parts.scheme, parts.netloc, parts.path, "", "")))
+        source_urls = sorted(set(discovered_urls))
+    if not source_urls or any(urlsplit(url).scheme != "https" or not urlsplit(url).netloc for url in source_urls):
+        raise ValueError("Grid ingestion requires verified HTTPS source URLs from the granule metadata.")
     files = earthaccess.download(results, local_path=str(ROOT / "data" / "raw" / short_name))
     w, s, e, n = bbox
     slices, times = [], []
@@ -155,9 +189,17 @@ def fetch_grid_earthaccess(
     out.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(out, time=np.array(times)[order].astype("datetime64[M]").astype(str), lat=lats, lon=lons, cube=cube)
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    retrieved = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    input_files = [{
+        "file": Path(fp).resolve().relative_to(ROOT.resolve()).as_posix(),
+        "sha256": _sha256_file(Path(fp)),
+    } for fp in files]
     manifest[f"grid:{variable_id}__{region}"] = {
-        "source": f"NASA Earthdata {short_name}", "variable": var_name, "bbox": bbox,
-        "granules": len(files), "retrieved": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "source": f"NASA Earthdata {short_name}", "source_urls": source_urls,
+        "variable": var_name, "bbox": bbox, "granules": len(files),
+        "input_files": input_files,
+        "file": out.relative_to(ROOT).as_posix(), "sha256": _sha256_file(out),
+        "retrieved": retrieved, "retrieval_date": retrieved[:10], "code_version": CODE_VERSION,
     }
-    MANIFEST.write_text(json.dumps(manifest, indent=2))
+    MANIFEST.write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="")
     return out

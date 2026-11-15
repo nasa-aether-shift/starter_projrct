@@ -18,6 +18,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import numpy as np
 
@@ -29,6 +30,16 @@ from stats_engine import MonthlySeries, analyze_series  # noqa: E402
 DEFAULT_CODE_VERSION = os.getenv("CODE_VERSION", "0.1.0")
 _ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _MISSING = {"", "na", "nan"}
+_TRACKING_PARAM = re.compile(r"^(utm_\w+|fbclid|gclid)$", re.IGNORECASE)
+
+
+def _without_tracking(value: str) -> str:
+    """Drop link-tracking query parameters (utm_*, fbclid, gclid) from an HTTP(S) source URL; keep the rest."""
+    parts = urlsplit(value)
+    if parts.scheme not in {"http", "https"} or not parts.query:
+        return value
+    query = [(k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not _TRACKING_PARAM.match(k)]
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query, safe=",:/"), parts.fragment))
 
 
 def _month(value: str, line_number: int) -> tuple[str, int]:
@@ -189,7 +200,9 @@ def _parse_csv(
         raise ValueError("CSV contains a header but no monthly records.")
     if not np.isfinite(np.asarray(values, dtype=float)).any():
         raise ValueError("CSV contains no valid numeric monthly values.")
-    source_label = metadata.get("source") or metadata.get("url to reproduce results") or "NASA Giovanni area-averaged CSV"
+    source_label = _without_tracking(
+        metadata.get("source") or metadata.get("url to reproduce results") or "NASA Giovanni area-averaged CSV"
+    )
     return months, np.asarray(values, dtype=float), source_units, source_label
 
 
@@ -202,12 +215,12 @@ def _is_fill_value(text: str, fill_value: float) -> bool:
 
 def _write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    path.write_text(content, encoding="utf-8", newline="")  # identical bytes on every OS (outputs are checksummed)
 
 
 def _relative_or_name(path: Path, root: Path) -> str:
     try:
-        return str(path.resolve().relative_to(root.resolve()))
+        return path.resolve().relative_to(root.resolve()).as_posix()
     except ValueError:
         return path.name
 

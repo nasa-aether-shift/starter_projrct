@@ -2,18 +2,19 @@ id: gpm_precip
 name: {en: Rainfall, tw: Nsuo a ɛtɔ}   # Twi to be reviewed by a fluent speaker
 definition:
   kid: {en: How much rain falls from the sky.}
-  student: {en: Total rain reaching the ground in a month, in millimetres.}
-  scientist: {en: Satellite-gauge merged monthly precipitation from GPM IMERG Final Run.}
-units: mm/month
-source: {collection: GPM_3IMERGM, version: "<verify in CMR>", variable: precipitation, provider: NASA GES DISC}
+  student: {en: Average rain reaching the ground per day in a month, in millimetres.}
+  scientist: {en: Satellite-gauge merged monthly precipitation from GPM IMERG Final Run, as a rate in mm/day.}
+units: mm/day
+source: {collection: GPM_3IMERGM, version: "07", variable: precipitation, provider: NASA GES DISC}  # verified, see docs/VERIFIED.md
 resolution: {spatial_deg: 0.1, temporal: monthly}
 coverage: {start: 2000-06, end: "<latest>"}
-qa: {min_valid_fraction: 0.75, convert: "mm/hr -> mm/month (x hours in month), check units on download"}
+qa: {min_valid_fraction: 0.75, convert: "mm/hr -> mm/day (x 24); see docs/DECISIONS.md #30"}
 palette_polarity: wet_is_blue
 synonyms: [rain, rainfall, drought, wetter, drier, dry, flood, nsuo]
 typical_questions: ["Is it getting drier here?", "Is the rainy season changing?"]
 caveats:
   - Record starts in mid-2000, so about 25 years.
   - Algorithm version changes can shift values.
+  - The West Africa map averages the 0.1° data into 0.5° cells (about 55 km).
 recommended_min_years: 15
 model_or_measurement: measurement

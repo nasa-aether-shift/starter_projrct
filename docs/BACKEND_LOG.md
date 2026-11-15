@@ -108,3 +108,64 @@ The checks confirm there is no usable map cache in the repository. `GET /health`
 - Added an API lifespan check that refuses startup when `APP_ENV=production` and `USE_FIXTURES=1`. `.env.example` documents `APP_ENV`; development remains the default. Uncached trend/point routes remain fixture-gated, and legacy fixture run lookup is also disabled when `USE_FIXTURES=0`.
 - Added tests for health's missing-file list, production startup refusal, uncached trend and point responses in real mode, and legacy fixture run rejection in real mode. No frontend-visible existing fields were removed or changed.
 - Command from `apps/api/`: `/tmp/edd-b1-venv/bin/python -m pytest -q tests/test_api.py` — **32 passed in 4.69s**, one Starlette/httpx deprecation warning. This suite uses temporary synthetic test caches; no live NASA calls were made.
+
+## B5 — provenance-checked cache build and bounded pixel statistics (2026-11-14)
+
+- `pipelines/ingest/seed.py` now builds cached regional result JSON from normalized local series only when the manifest supplies HTTPS source URLs, a retrieval date, code version, and a matching SHA-256 for the retained original source file. It ignores the `.giovanni.csv` retained export copy instead of trying to parse it as `time,value`. It records normalized input and output checksums and seed code version in the manifest.
+- Gridded cache generation verifies the grid checksum plus each retained granule checksum and source URL. The grid loader now records those hashes, retrieval date, and code version; the monthly CSV loader records the same provenance fields. The API's map JSON retains its established `opposite_trends` response shape, so no API or frontend contract changed.
+- Map generation caps output at 10,000 cells and rejects input grids above 25,000 spatial cells or 600 monthly slices before decompression. `pixel_trends` now processes pixels in 512-cell chunks. A fixed-seed synthetic regression test compares slope, p-value, and coverage arrays exactly against the previous unchunked algorithm; **STATS owner review is required** for the restricted stats-engine change.
+- Seed metrics print runtime and process peak RSS. Running against the available real regional series rebuilt one cache in **21.49 seconds** with **208,470,016 bytes** process peak RSS. No verified grid input exists in `data/cache/grids/`, so this run could not produce a point-sampling NPZ or map/opposite-trend cache; it explicitly reported that it did not fabricate them. No live NASA call was made.
+- `make seed` initially failed because system `python3` has no NumPy installed; direct user-site installation was blocked by the OS's externally-managed Python policy. Installed the already-declared runtime dependencies NumPy, SciPy, and PyYAML in the isolated persistent environment `$HOME/.venvs/earth-data-detective`. `PATH=$HOME/.venvs/earth-data-detective/bin:$PATH make seed` succeeded, rebuilding the regional series in **22.72 seconds** at **102,838,272 bytes** peak RSS and reporting no gridded inputs. System Python remains unchanged. No Makefile or project dependency-manifest edits were made.
+- Tests: `/tmp/edd-b1-venv/bin/python -m pytest -q pipelines/ingest/tests/test_seed.py packages/stats_engine/tests/test_pixel_chunks.py` — **5 passed**; `/tmp/edd-b1-venv/bin/python -m pytest -q pipelines/ingest/tests/test_seed.py pipelines/ingest/tests/test_giovanni.py` — **19 passed**; API suite from `apps/api/` — **32 passed**, one Starlette/httpx deprecation warning. Touched Python files compiled successfully; local real-cache POST `/api/v1/trend` returned **200**, units `degC`, 252 months.
+- Full stats-engine suite was not run: its existing `test_validation.py` cannot be collected in the available environment because `pymannkendall` is absent. The isolated chunk-equivalence test passed. No project dependency was added.
+
+## T1 — provenance cleanup, plain-language errors and Windows portability (2026-11-14)
+
+- Provenance: the Giovanni importer now drops link-tracking query parameters (`utm_*`, `fbclid`, `gclid`) from source URLs and keeps the rest of the link, including Giovanni's `#service=…` fragment (`pipelines/ingest/giovanni.py`). The Kumasi temperature manifest was rebuilt from the retained original export (SHA-256 `fc92e4f5…`, unchanged), so `source`/`source_urls` no longer contain `utm_source=chatgpt.com`. The result JSON and `data/raw` files are byte-identical to the previous commit; no scientific value changed.
+- Catalog: `data/catalog/merra2_t2m.yaml` version set to `5.12.4`, already recorded in `docs/VERIFIED.md` from the NASA DOI landing page. GPM and MODIS versions stay `<verify in CMR>`.
+- Errors: missing-data 404s from `/trend`, `/trend-at-point`, `/trend-map` and `/opposite-trends` now have the title "Not available yet" and a sentence that names the variable and place, instead of developer hints (`make seed`, cache file names). Status codes and the `{"detail": {type, title, detail}}` shape are unchanged; the web does not match on these strings.
+- Verdict wording: the template prints `°C` instead of `degC` and `0.00` instead of `-0.00` (`apps/api/app/ai.py`). The numeric guard still accepts the template text.
+- Windows portability (the build laptop runs Windows):
+  - `seed.py` imported the Unix-only `resource` module, so `make seed` could not run on Windows. Peak memory now uses the Win32 API through `ctypes` on Windows; no dependency was added.
+  - Pipeline outputs are written with `newline=""` and manifest paths with forward slashes, so checksummed files are byte-identical on Windows and Linux (CI and Render).
+  - A new root `.gitattributes` marks `data/raw/**` and `data/cache/**` as `-text`. Windows checkouts with `core.autocrlf=true` had rewritten line endings, so the retained Giovanni CSV failed seed's own checksum check.
+  - `/health` reports `missing_cache_files` with forward slashes.
+- Tests (written failing first, then fixed). Run on Windows, Python 3.14, 2026-11-14:
+  - `cd apps/api && python -m pytest -q`: **35 passed**.
+  - `python -m pytest -q pipelines/ingest/tests`: **23 passed**.
+  - `cd packages/stats_engine && python -m pytest -q tests/test_pixel_chunks.py`: **1 passed**.
+  - `test_validation.py` was not run here because `pymannkendall` is not installed locally; CI installs it and runs it.
+- Live check: `USE_FIXTURES=0` API, `POST /trend` for merra2_t2m/kumasi returned 200 with version 5.12.4 and no tracking parameter in provenance; rainfall, map and map-click requests returned 404 "Not available yet" with plain sentences.
+- Seed on Windows: rebuilt 1 regional series in about 4.6 s, peak about 102 MB. No gridded input exists, so no map or point grid was produced or fabricated.
+
+## T2 — West Africa grids from NASA OPeNDAP, maps, and grid-backed presets (2026-11-14)
+
+- New `pipelines/ingest/opendap_grid.py` downloads server-side subsets from NASA Earthdata cloud OPeNDAP: one variable inside the box, one small NetCDF-4 file per month. It uses an Earthdata token from `EARTHDATA_TOKEN`, which is never printed or stored.
+  - Whole global files would be about 36 GB (CMR granule sizes); the subsets were about 59 MB.
+  - Dataset facts were read from each collection's OPeNDAP DMR and recorded in `docs/VERIFIED.md`.
+- Grids built, West Africa (0–20°N, 20°W–20°E), with no missing months:
+  - MERRA-2 T2M 5.12.4: 1980-01 to 2025-12, 552 months, 41 × 65 cells (native 0.5° × 0.625°), K → °C.
+  - GPM_3IMERGM 07: 2000-06 to 2025-09, 304 months (later Final Run months not yet published), 40 × 80 cells (0.1° averaged to 0.5°), mm/hr → mm/day (DECISIONS #30, #31).
+  - Download times: MERRA-2 about 10 min, GPM about 5 min (6 parallel requests).
+- `make seed` built both trend maps and opposite-trend payloads: about 31 s, peak about 164 MB (Windows).
+- Results, as computed by the stats engine:
+  - Temperature: 2,377 of 2,665 cells significant after FDR, all warming. The rising cluster (2,374 cells) is +0.223 °C/decade, grade B.
+  - Rainfall: 87 of 3,200 cells significant (49 wetter, 38 drier). The largest drier cluster (25 cells, Cameroon coast) is below the 1% minimum cluster size, so no opposite trends are reported (see KNOWN_LIMITS).
+- API changes (`apps/api/app/main.py`):
+  - Presets without a cached regional result are built from a covering grid, the same way as a drawn box. Ashanti and West Africa now work for temperature and rainfall, and Kumasi for rainfall. Cached results (Kumasi temperature, Giovanni) still take priority.
+  - Provenance summarises long per-file lists (first and last source URL, counts, pointer to the manifest).
+  - Grid coverage and cell selection allow 1e-6° of float noise.
+- Downloader fixes found while running it:
+  - The MERRA-2 equator latitude is stored as -1.8e-13 and was excluded from the box; it is now included.
+  - Subset files are keyed by their constraint, so a changed box never reuses old cut-outs.
+- Live check (`USE_FIXTURES=0`):
+  - trend maps return 200 for temperature and rainfall; NDVI returns "Not available yet";
+  - map clicks and drawn boxes return 200;
+  - presets: Kumasi temperature D (Giovanni 2005–2025), Kumasi rainfall D, Ashanti temperature B (+0.157 °C/decade), Ashanti rainfall D, West Africa temperature B (+0.207 °C/decade), West Africa rainfall D;
+  - the web Explore panel shows the real Ashanti verdict.
+- Tests: `cd apps/api && python -m pytest -q` **39 passed**; `python -m pytest -q pipelines/ingest/tests` **31 passed** (8 new OPeNDAP grid tests, including one where seed accepts and maps the synthetic grid).
+- Open questions for STATS:
+  - The 1% minimum cluster size hides the Cameroon-coast drying.
+  - The Lake Chad wetter cluster's regional Sen slope is +0.009 mm/day/decade, while its cells' annual slopes are +0.09 to +0.19. This may be dry-season zero months (ties) pulling the monthly Sen slope towards zero.
+  - Confirm mm/day versus mm/month.
+- For the human: the Kumasi temperature preset still uses the 2005–2025 Giovanni export (grade D). The MERRA-2 grid cell for Kumasi over 1980–2025 gives grade C (+0.124 °C/decade). Re-export Giovanni for 1980–2025, or decide to serve Kumasi from the grid.

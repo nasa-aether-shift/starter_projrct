@@ -56,6 +56,7 @@ REGIONS = json.loads((ROOT / "data" / "regions" / "presets.geojson").read_text()
 REGION_BY_ID = {f["properties"]["id"]: f for f in REGIONS["features"]}
 RUNS: dict[str, dict[str, Any]] = {}
 RUN_ID_PREFIX = "r1_"
+COORD_TOLERANCE = 1e-6  # degrees; absorbs float32 rounding in cached grid coordinates
 RUN_ID_MAX_LENGTH = 256
 
 
@@ -83,6 +84,16 @@ class NarrativeRequest(BaseModel):
 
 def problem(status: int, title: str, detail: str) -> HTTPException:
     return HTTPException(status_code=status, detail={"type": "about:blank", "title": title, "detail": detail})
+
+
+def _not_available(detail: str) -> HTTPException:
+    """404 for data that has not been prepared yet, worded for the people using the app."""
+    return problem(404, "Not available yet", detail)
+
+
+def _region_label(region_id: str) -> str:
+    region = REGION_BY_ID.get(region_id)
+    return region["properties"]["name"] if region else "this region"
 
 
 def _variable(vid: str) -> dict[str, Any]:
@@ -157,6 +168,24 @@ def _decode_run_id(run_id: str) -> dict[str, Any]:
         raise problem(404, "Unknown run", "This run ID is invalid or unavailable.") from exc
 
 
+def _provenance_entry(entry: dict[str, Any], keep: int = 3) -> dict[str, Any]:
+    """Manifest entry for a result's provenance; long per-file lists (a grid has one file per month) are summarised.
+
+    The complete lists stay in data/cache/manifest.json, which the summary points to.
+    """
+    urls, files = entry.get("source_urls") or [], entry.get("input_files") or []
+    if len(urls) <= keep and len(files) <= keep:
+        return entry
+    summary = {k: v for k, v in entry.items() if k not in ("source_urls", "input_files")}
+    if urls:
+        summary["source_urls"] = urls if len(urls) <= keep else [urls[0], urls[-1]]
+        summary["source_url_count"] = len(urls)
+    if files:
+        summary["input_file_count"] = len(files)
+    summary["full_record"] = "data/cache/manifest.json"
+    return summary
+
+
 def _finish(
     result: dict[str, Any], variable: dict[str, Any], region_name: str, geometry: Any,
     provenance_extra: dict, *, run_id: str,
@@ -176,7 +205,7 @@ def _finish(
         "region": {"name": region_name, "geometry": geometry},
         **result,
         "provenance": {
-            "datasets": [variable["source"], manifest_entry],
+            "datasets": [variable["source"], _provenance_entry(manifest_entry)],
             "steps": [
                 quality_step,
                 spatial_step,
@@ -201,7 +230,7 @@ def _finish(
 def health() -> dict[str, Any]:
     results = sorted(p.stem for p in (CACHE / "results").glob("*.json")) if (CACHE / "results").exists() else []
     missing = [
-        str(Path("data/cache") / relative_path)
+        (Path("data/cache") / relative_path).as_posix()  # same on Windows and Linux
         for relative_path in REQUIRED_CACHE_FILES
         if not (CACHE / relative_path).is_file()
     ]
@@ -295,7 +324,17 @@ def _bbox_covered_by_grid(bbox: tuple[float, float, float, float], lat: np.ndarr
     west, south, east, north = bbox
     grid_west, grid_east = _grid_coverage(lon)
     grid_south, grid_north = _grid_coverage(lat)
-    return grid_west <= west and east <= grid_east and grid_south <= south and north <= grid_north
+    tol = COORD_TOLERANCE
+    return grid_west <= west + tol and east <= grid_east + tol and grid_south <= south + tol and north <= grid_north + tol
+
+
+def _cells_in_box(lat: np.ndarray, lon: np.ndarray, bbox: tuple[float, float, float, float]) -> np.ndarray:
+    """Mask of grid cells whose centres fall inside bbox (allowing float noise, e.g. an equator row of -1.8e-13)."""
+    west, south, east, north = bbox
+    tol = COORD_TOLERANCE
+    lat_mask = (lat >= south - tol) & (lat <= north + tol)
+    lon_mask = (lon >= west - tol) & (lon <= east + tol)
+    return lat_mask[:, None] & lon_mask[None, :]
 
 
 def _select_grid(variable_id: str, region_id: str | None, bbox: tuple[float, float, float, float]) -> Path:
@@ -305,7 +344,7 @@ def _select_grid(variable_id: str, region_id: str | None, bbox: tuple[float, flo
             raise problem(404, "Unknown region", f"No preset or cached-grid region '{region_id}'.")
         path = grid_dir / f"{variable_id}__{region_id}.npz"
         if not path.is_file():
-            raise problem(404, "Grid not cached", f"No grid for {path.stem}.")
+            raise _not_available(f"Custom areas for {CATALOG[variable_id]['name']['en']} are not available yet. Try a preset place instead.")
         with np.load(path) as grid:
             if not _bbox_covered_by_grid(bbox, grid["lat"], grid["lon"]):
                 raise problem(422, "Outside cached coverage", "The bbox is not fully inside this cached grid's coverage.")
@@ -313,7 +352,7 @@ def _select_grid(variable_id: str, region_id: str | None, bbox: tuple[float, flo
 
     candidates = sorted(grid_dir.glob(f"{variable_id}__*.npz")) if grid_dir.exists() else []
     if not candidates:
-        raise problem(404, "Grid not cached", f"No cached grid exists for variable '{variable_id}'.")
+        raise _not_available(f"Custom areas for {CATALOG[variable_id]['name']['en']} are not available yet. Try a preset place instead.")
     overlapping: list[tuple[bool, float, str, Path]] = []
     for path in candidates:
         with np.load(path) as grid:
@@ -337,9 +376,39 @@ def _bbox_geometry(bbox: tuple[float, float, float, float]) -> dict[str, Any]:
 
 def _cache_relative_path(path: Path) -> str:
     try:
-        return str(path.resolve().relative_to(ROOT.resolve()))
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
     except ValueError:
         return path.name
+
+
+def _geometry_bbox(geometry: dict[str, Any]) -> tuple[float, float, float, float]:
+    """(west, south, east, north) of a preset's GeoJSON geometry."""
+    coords = np.asarray([pt for ring in geometry["coordinates"] for pt in ring], dtype=float)
+    return float(coords[:, 0].min()), float(coords[:, 1].min()), float(coords[:, 0].max()), float(coords[:, 1].max())
+
+
+def _grid_box_result(path: Path, bbox: tuple[float, float, float, float], req: TrendRequest) -> tuple[dict[str, Any], int]:
+    """Analyse the latitude-weighted mean of the cached grid cells whose centres fall inside bbox."""
+    with np.load(path) as grid:
+        time = grid["time"].astype("datetime64[M]")
+        lat, lon, cube = grid["lat"].astype(float), grid["lon"].astype(float), grid["cube"].astype(float)
+    if cube.shape != (len(time), len(lat), len(lon)):
+        raise problem(422, "Invalid cached grid", "Cached grid dimensions do not match its time, latitude, and longitude coordinates.")
+    west, south, east, north = bbox
+    mask = _cells_in_box(lat, lon, bbox)
+    notices: list[str] = []
+    if not mask.any():
+        mid_lat, mid_lon = (south + north) / 2, (west + east) / 2
+        lon_scale = np.cos(np.deg2rad(mid_lat))
+        distance = (lat[:, None] - mid_lat) ** 2 + (lon_scale * (lon[None, :] - mid_lon)) ** 2
+        i, j = np.unravel_index(np.argmin(distance), distance.shape)
+        mask[i, j] = True
+        notices.append(f"No grid-cell centre fell inside the bbox; nearest grid-cell centre ({lat[i]:.4f}, {lon[j]:.4f}) was used.")
+    values = regional_series(cube, mask, cell_weights(lat, mask.shape))
+    result = _analyze_period(time, values, req)
+    if result["data_quality"] is not None:
+        result["data_quality"]["notices"].extend(notices)
+    return result, int(mask.sum())
 
 
 @app.post("/api/v1/trend")
@@ -350,31 +419,10 @@ def trend(req: TrendRequest) -> dict[str, Any]:
         bbox = _bbox_parts(req.bbox)
         path = _select_grid(req.variable_id, req.region_id, bbox)
         run_id = _encode_run_id(_trend_run_payload(req, bbox))
-        with np.load(path) as grid:
-            time = grid["time"].astype("datetime64[M]")
-            lat, lon, cube = grid["lat"].astype(float), grid["lon"].astype(float), grid["cube"].astype(float)
-        if cube.shape != (len(time), len(lat), len(lon)):
-            raise problem(422, "Invalid cached grid", "Cached grid dimensions do not match its time, latitude, and longitude coordinates.")
-        west, south, east, north = bbox
-        lat_mask = (lat >= south) & (lat <= north)
-        lon_mask = (lon >= west) & (lon <= east)
-        mask = lat_mask[:, None] & lon_mask[None, :]
-        notices: list[str] = []
-        if not mask.any():
-            mid_lat, mid_lon = (south + north) / 2, (west + east) / 2
-            lon_scale = np.cos(np.deg2rad(mid_lat))
-            distance = (lat[:, None] - mid_lat) ** 2 + (lon_scale * (lon[None, :] - mid_lon)) ** 2
-            i, j = np.unravel_index(np.argmin(distance), distance.shape)
-            mask[i, j] = True
-            notices.append(f"No grid-cell centre fell inside the bbox; nearest grid-cell centre ({lat[i]:.4f}, {lon[j]:.4f}) was used.")
-        values = regional_series(cube, mask, cell_weights(lat, mask.shape))
-        result = _analyze_period(time, values, req)
-        if result["data_quality"] is not None:
-            result["data_quality"]["notices"].extend(notices)
-        region_name = "Custom bounding box"
+        result, cells = _grid_box_result(path, bbox, req)
         return _finish(
-            result, var, region_name, _bbox_geometry(bbox),
-            {"manifest_key": f"grid:{path.stem}", "regional": True, "source_file": _cache_relative_path(path), "bbox": list(bbox), "selected_cells": int(mask.sum())},
+            result, var, "Custom bounding box", _bbox_geometry(bbox),
+            {"manifest_key": f"grid:{path.stem}", "regional": True, "source_file": _cache_relative_path(path), "bbox": list(bbox), "selected_cells": cells},
             run_id=run_id,
         )
 
@@ -398,11 +446,27 @@ def trend(req: TrendRequest) -> dict[str, Any]:
             result, var, region["properties"]["name"], region["geometry"],
             {"manifest_key": path.stem, "regional": True}, run_id=run_id,
         )
+    # No cached regional result: average the cells of a cached grid that covers the preset, as for a drawn box.
+    region_box = _geometry_bbox(region["geometry"])
+    try:
+        grid_path = _select_grid(req.variable_id, None, region_box)
+    except HTTPException:
+        grid_path = None
+    if grid_path is not None:
+        result, cells = _grid_box_result(grid_path, region_box, req)
+        return _finish(
+            result, var, region["properties"]["name"], region["geometry"],
+            {"manifest_key": f"grid:{grid_path.stem}", "regional": True, "source_file": _cache_relative_path(grid_path),
+             "bbox": list(region_box), "selected_cells": cells},
+            run_id=run_id,
+        )
     if req.start is None and req.end is None and USE_FIXTURES and FIXTURE.exists():
         fx = json.loads(FIXTURE.read_text())
         RUNS[fx["run_id"]] = fx
         return fx
-    raise problem(404, "Not cached yet", f"No cached result for {path.stem}. Run `make seed` after ingesting data.")
+    raise _not_available(
+        f"{var['name']['en']} results for {region['properties']['name']} have not been prepared yet. Try another variable or place."
+    )
 
 
 @app.post("/api/v1/trend-at-point")
@@ -412,7 +476,7 @@ def trend_at_point(req: PointRequest) -> dict[str, Any]:
     if not path.exists():
         if USE_FIXTURES and FIXTURE.exists():
             return json.loads(FIXTURE.read_text())
-        raise problem(404, "Grid not cached", f"No grid for {path.stem}. Run the earthaccess ingest, then `make seed`.")
+        raise _not_available(f"Map clicks for {var['name']['en']} are not available yet. Try a preset place instead.")
     g = np.load(path)
     lat, lon = g["lat"], g["lon"]
     if not (lat.min() <= req.lat <= lat.max() and lon.min() <= req.lon <= lon.max()):
@@ -458,10 +522,10 @@ def _resolve_run(run_id: str) -> dict[str, Any]:
 
 @app.get("/api/v1/trend-map/{vid}/{region_id}")
 def trend_map(vid: str, region_id: str) -> dict[str, Any]:
-    _variable(vid)
+    var = _variable(vid)
     path = CACHE / "maps" / f"{vid}__{region_id}.json"
     if not path.exists():
-        raise problem(404, "Map not cached", f"Run `make seed` to build {path.stem}.")
+        raise _not_available(f"The {var['name']['en']} trend map for {_region_label(region_id)} is not available yet.")
     data = json.loads(path.read_text())
     data.pop("opposite_trends", None)
     data["palette_polarity"] = CATALOG[vid]["palette_polarity"]
@@ -471,10 +535,10 @@ def trend_map(vid: str, region_id: str) -> dict[str, Any]:
 
 @app.get("/api/v1/opposite-trends/{vid}/{region_id}")
 def opposite(vid: str, region_id: str) -> dict[str, Any]:
-    _variable(vid)
+    var = _variable(vid)
     path = CACHE / "maps" / f"{vid}__{region_id}.json"
     if not path.exists():
-        raise problem(404, "Map not cached", f"Run `make seed` to build {path.stem}.")
+        raise _not_available(f"Opposite-trend results for {var['name']['en']} in {_region_label(region_id)} are not available yet.")
     return json.loads(path.read_text())["opposite_trends"]
 
 

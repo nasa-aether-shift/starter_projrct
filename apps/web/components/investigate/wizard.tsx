@@ -31,6 +31,8 @@ export function Wizard() {
   const searchResult = useVariableSearch(q);
   const run = useRunTrend();
   const [draftQ, setDraftQ] = useState(q);
+  const [questionSuggestionsOpen, setQuestionSuggestionsOpen] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const update = (changes: Record<string, string | null>, nextRegion?: RegionChoice | null) => {
@@ -43,6 +45,12 @@ export function Wizard() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
   const go = (n: number) => update({ step: String(n) });
+  const chooseQuestionSuggestion = (question: string) => {
+    setDraftQ(question);
+    setQuestionSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
+    update({ q: question, variable: null, start: null, end: null, step: "2" });
+  };
 
   // Move focus to the step heading so screen-reader and keyboard users land on the new step.
   useEffect(() => {
@@ -65,6 +73,49 @@ export function Wizard() {
       source: top > 0 ? "keywords" : "none",
     };
   }, [variables.data, searchResult.data, q]);
+
+  const questionSuggestions = useMemo(() => {
+    const all = variables.data ?? [];
+    const words = [...new Set(draftQ.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [])];
+    if (!draftQ.trim()) return [];
+    const variableScores = new Map(
+      rankVariables(draftQ, all)
+        .filter(({ score }) => score > 0)
+        .map(({ variable, score }) => [variable.id, score]),
+    );
+    const rankedQuestions = all.flatMap((variable) =>
+      variable.typical_questions.map((question) => ({
+        question,
+        score:
+          words.filter((word) => question.toLowerCase().includes(word)).length + (variableScores.get(variable.id) ?? 0),
+      })),
+    );
+
+    return rankedQuestions
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(({ question }) => question);
+  }, [draftQ, variables.data]);
+  const showQuestionSuggestions = questionSuggestionsOpen && Boolean(draftQ.trim()) && questionSuggestions.length > 0;
+
+  const activitySuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    return (variables.data ?? [])
+      .flatMap((item) =>
+        item.typical_questions.slice(0, 1).map((question) => ({
+          id: item.id,
+          title: item.name.en,
+          question,
+        })),
+      )
+      .filter(({ question }) => {
+        if (seen.has(question)) return false;
+        seen.add(question);
+        return true;
+      })
+      .slice(0, 3);
+  }, [variables.data]);
 
   const coverageStart = variable?.coverage?.start ?? "1981-01";
   const firstYear = Number(coverageStart.slice(0, 4));
@@ -162,29 +213,97 @@ export function Wizard() {
               <Search aria-hidden className="absolute top-4 left-4 size-6 text-muted-foreground" />
               <textarea
                 id="question"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={showQuestionSuggestions}
+                aria-controls={showQuestionSuggestions ? "question-suggestions" : undefined}
+                aria-activedescendant={
+                  showQuestionSuggestions && activeSuggestionIndex >= 0
+                    ? `question-suggestion-${activeSuggestionIndex}`
+                    : undefined
+                }
                 value={draftQ}
-                onChange={(e) => setDraftQ(e.target.value)}
+                onChange={(e) => {
+                  setDraftQ(e.target.value);
+                  setQuestionSuggestionsOpen(true);
+                  setActiveSuggestionIndex(-1);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setQuestionSuggestionsOpen(false);
+                    setActiveSuggestionIndex(-1);
+                  } else if (showQuestionSuggestions && event.key === "ArrowDown") {
+                    event.preventDefault();
+                    setActiveSuggestionIndex((index) => (index + 1) % questionSuggestions.length);
+                  } else if (showQuestionSuggestions && event.key === "ArrowUp") {
+                    event.preventDefault();
+                    setActiveSuggestionIndex((index) => (index <= 0 ? questionSuggestions.length - 1 : index - 1));
+                  } else if (showQuestionSuggestions && event.key === "Enter" && activeSuggestionIndex >= 0) {
+                    event.preventDefault();
+                    const selected = questionSuggestions[activeSuggestionIndex];
+                    if (selected) chooseQuestionSuggestion(selected);
+                  }
+                }}
                 rows={2}
                 maxLength={300}
                 placeholder="Is Kumasi getting hotter?"
                 className="w-full resize-none rounded-2xl border border-input bg-panel py-3.5 pr-4 pl-14 text-xl"
               />
+              {showQuestionSuggestions ? (
+                <div
+                  id="question-suggestions"
+                  role="listbox"
+                  aria-label="Suggested questions"
+                  className="absolute top-full right-0 left-0 z-20 mt-1 max-h-60 overflow-y-auto rounded-xl border border-border bg-popover p-2 shadow-xl"
+                >
+                  {questionSuggestions.map((suggestion, index) => (
+                    <button
+                      key={`${suggestion}-${index}`}
+                      type="button"
+                      id={`question-suggestion-${index}`}
+                      role="option"
+                      aria-selected={activeSuggestionIndex === index}
+                      tabIndex={-1}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onMouseEnter={() => setActiveSuggestionIndex(index)}
+                      onClick={() => chooseQuestionSuggestion(suggestion)}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm ${
+                        activeSuggestionIndex === index ? "bg-accent" : "hover:bg-accent"
+                      }`}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="py-1.5 text-muted-foreground">Try:</span>
-              {(variables.data ?? [])
-                .flatMap((v) => v.typical_questions.slice(0, 1))
-                .map((ex) => (
+            <section aria-labelledby="what-to-try-heading" className="flex flex-col gap-3">
+              <div>
+                <h2 id="what-to-try-heading" className="text-lg font-semibold">
+                  What to try
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Choose an activity to start; we’ll take you to place selection.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {activitySuggestions.map((activity) => (
                   <button
-                    key={ex}
+                    key={activity.id}
                     type="button"
-                    onClick={() => setDraftQ(ex)}
-                    className="rounded-full border border-border px-4 py-1.5 hover:border-primary/60"
+                    onClick={() => {
+                      setDraftQ(activity.question);
+                      setQuestionSuggestionsOpen(false);
+                      update({ q: activity.question, variable: activity.id, start: null, end: null, step: "3" });
+                    }}
+                    className="flex flex-col items-start gap-2 rounded-xl border border-border bg-panel p-4 text-left transition-colors hover:border-primary/60 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
-                    {ex}
+                    <span className="text-sm font-semibold">{activity.title}</span>
+                    <span className="text-sm text-muted-foreground">{activity.question}</span>
                   </button>
                 ))}
-            </div>
+              </div>
+            </section>
             <Button type="submit" size="lg" className="h-12 w-fit px-6 text-lg" disabled={!canNext}>
               Find the right data <ArrowRight aria-hidden />
             </Button>
