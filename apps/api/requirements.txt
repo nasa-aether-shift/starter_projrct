@@ -1,0 +1,12 @@
+# Runtime dependencies of the API (apps/api) and the stats engine it imports (packages/stats_engine).
+# Pinned. Checked to resolve to binary wheels for CPython 3.12 on Linux x86_64 (Render).
+# Test and ingestion packages are not listed here (see pipelines/requirements.txt for ingestion).
+fastapi==0.139.2
+uvicorn[standard]==0.51.0
+pydantic==2.13.4
+PyYAML==6.0.3
+numpy==2.5.1
+scipy==1.18.0
+httpx==0.28.1
+# Imported only when LLM_API_KEY is set (AI rewrite on /narrative)
+anthropic==2.8.0

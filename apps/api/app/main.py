@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import base64
+import functools
 import io
 import json
 import os
@@ -16,7 +17,7 @@ import numpy as np
 import yaml
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import AliasChoices, BaseModel, Field
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -38,7 +39,10 @@ USE_FIXTURES = os.getenv("USE_FIXTURES", "1") == "1"  # turn off once real cache
 
 def validate_startup_config() -> None:
     if APP_ENV == "production" and USE_FIXTURES:
-        raise RuntimeError("APP_ENV=production requires USE_FIXTURES=0.")
+        raise RuntimeError(
+            "Refusing to start: APP_ENV=production but USE_FIXTURES is on (it defaults to 1), which would serve "
+            "SYNTHETIC fixture data. Set USE_FIXTURES=0 so the API serves only the real files in data/cache."
+        )
 
 
 @asynccontextmanager
@@ -250,21 +254,43 @@ def _finish(
     return full
 
 
-@app.get("/api/v1/health")
-def health() -> dict[str, Any]:
-    results = sorted(p.stem for p in (CACHE / "results").glob("*.json")) if (CACHE / "results").exists() else []
+def _required_cache_files() -> list[Path]:
+    """REQUIRED_CACHE_FILES plus every data/cache file that the provenance manifest says exists."""
+    required = set(REQUIRED_CACHE_FILES)
+    manifest_path = CACHE / "manifest.json"
+    if manifest_path.is_file():
+        for entry in json.loads(manifest_path.read_text(encoding="utf-8")).values():
+            for key in ("cache_file", "file"):
+                value = entry.get(key) if isinstance(entry, dict) else None
+                if isinstance(value, str) and value.startswith("data/cache/"):
+                    required.add(Path(value).relative_to("data/cache"))
+    return sorted(required, key=lambda p: p.as_posix())
+
+
+def _cached(kind: str, pattern: str) -> list[str]:
+    folder = CACHE / kind
+    return sorted(p.stem for p in folder.glob(pattern)) if folder.is_dir() else []
+
+
+@app.get("/api/v1/health", response_model=None)
+def health() -> dict[str, Any] | JSONResponse:
+    """503 when a required cache file is missing, so a deploy without its data never passes the health check."""
     missing = [
         (Path("data/cache") / relative_path).as_posix()  # same on Windows and Linux
-        for relative_path in REQUIRED_CACHE_FILES
+        for relative_path in _required_cache_files()
         if not (CACHE / relative_path).is_file()
     ]
-    return {
-        "status": "ok",
+    body = {
+        "status": "unavailable" if missing else "ok",
         "code_version": CODE_VERSION,
-        "cached_results": results,
         "using_fixtures": USE_FIXTURES,
+        "app_env": APP_ENV,
+        "cached_results": _cached("results", "*.json"),
+        "cached_maps": _cached("maps", "*.json"),
+        "cached_grids": _cached("grids", "*.npz"),
         "missing_cache_files": missing,
     }
+    return JSONResponse(body, status_code=503) if missing else body
 
 
 @app.get("/api/v1/variables")
@@ -367,6 +393,22 @@ def _cells_in_box(lat: np.ndarray, lon: np.ndarray, bbox: tuple[float, float, fl
     return lat_mask[:, None] & lon_mask[None, :]
 
 
+@functools.lru_cache(maxsize=16)
+def _load_grid_arrays(path: str, mtime_ns: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    with np.load(path) as grid:
+        arrays = (grid["time"].astype("datetime64[M]"), grid["lat"].astype(float),
+                  grid["lon"].astype(float), grid["cube"].astype(float))
+    for array in arrays:
+        array.setflags(write=False)  # shared by every request that uses this grid
+    return arrays
+
+
+def _grid(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """(time, lat, lon, cube) of a cached grid. Each file is read on first use and then kept in memory, keyed by
+    path and modification time (a re-seeded grid is read again)."""
+    return _load_grid_arrays(str(path), path.stat().st_mtime_ns)
+
+
 def _select_grid(variable_id: str, region_id: str | None, bbox: tuple[float, float, float, float]) -> Path:
     grid_dir = CACHE / "grids"
     if region_id is not None:
@@ -375,9 +417,9 @@ def _select_grid(variable_id: str, region_id: str | None, bbox: tuple[float, flo
         path = grid_dir / f"{variable_id}__{region_id}.npz"
         if not path.is_file():
             raise _not_available(f"Custom areas for {CATALOG[variable_id]['name']['en']} are not available yet. Try a preset place instead.")
-        with np.load(path) as grid:
-            if not _bbox_covered_by_grid(bbox, grid["lat"], grid["lon"]):
-                raise problem(422, "Outside cached coverage", "The bbox is not fully inside this cached grid's coverage.")
+        _, lat, lon, _ = _grid(path)
+        if not _bbox_covered_by_grid(bbox, lat, lon):
+            raise problem(422, "Outside cached coverage", "The bbox is not fully inside this cached grid's coverage.")
         return path
 
     candidates = sorted(grid_dir.glob(f"{variable_id}__*.npz")) if grid_dir.exists() else []
@@ -385,15 +427,14 @@ def _select_grid(variable_id: str, region_id: str | None, bbox: tuple[float, flo
         raise _not_available(f"Custom areas for {CATALOG[variable_id]['name']['en']} are not available yet. Try a preset place instead.")
     overlapping: list[tuple[bool, float, str, Path]] = []
     for path in candidates:
-        with np.load(path) as grid:
-            lat, lon = grid["lat"], grid["lon"]
-            if not _bbox_covered_by_grid(bbox, lat, lon):
-                continue
-            lat_bounds, lon_bounds = _grid_coverage(lat), _grid_coverage(lon)
-            west, south, east, north = bbox
-            contains = lon_bounds[0] <= west and east <= lon_bounds[1] and lat_bounds[0] <= south and north <= lat_bounds[1]
-            area = (lon_bounds[1] - lon_bounds[0]) * (lat_bounds[1] - lat_bounds[0])
-            overlapping.append((not contains, area, path.name, path))
+        _, lat, lon, _ = _grid(path)
+        if not _bbox_covered_by_grid(bbox, lat, lon):
+            continue
+        lat_bounds, lon_bounds = _grid_coverage(lat), _grid_coverage(lon)
+        west, south, east, north = bbox
+        contains = lon_bounds[0] <= west and east <= lon_bounds[1] and lat_bounds[0] <= south and north <= lat_bounds[1]
+        area = (lon_bounds[1] - lon_bounds[0]) * (lat_bounds[1] - lat_bounds[0])
+        overlapping.append((not contains, area, path.name, path))
     if not overlapping:
         raise problem(422, "Outside cached coverage", "The bbox is outside cached coverage for this variable.")
     return min(overlapping)[3]
@@ -419,9 +460,7 @@ def _geometry_bbox(geometry: dict[str, Any]) -> tuple[float, float, float, float
 
 def _grid_box_result(path: Path, bbox: tuple[float, float, float, float], req: TrendRequest) -> tuple[dict[str, Any], int]:
     """Analyse the latitude-weighted mean of the cached grid cells whose centres fall inside bbox."""
-    with np.load(path) as grid:
-        time = grid["time"].astype("datetime64[M]")
-        lat, lon, cube = grid["lat"].astype(float), grid["lon"].astype(float), grid["cube"].astype(float)
+    time, lat, lon, cube = _grid(path)
     if cube.shape != (len(time), len(lat), len(lon)):
         raise problem(422, "Invalid cached grid", "Cached grid dimensions do not match its time, latitude, and longitude coordinates.")
     west, south, east, north = bbox
@@ -507,13 +546,12 @@ def trend_at_point(req: PointRequest) -> dict[str, Any]:
         if USE_FIXTURES and FIXTURE.exists():
             return json.loads(FIXTURE.read_text(encoding="utf-8"))
         raise _not_available(f"Map clicks for {var['name']['en']} are not available yet. Try a preset place instead.")
-    g = np.load(path)
-    lat, lon = g["lat"], g["lon"]
+    time, lat, lon, cube = _grid(path)
     if not (lat.min() <= req.lat <= lat.max() and lon.min() <= req.lon <= lon.max()):
         raise problem(422, "Outside the map", "That point is outside the cached region.")
     run_id = _encode_run_id(_point_run_payload(req))
     i, j = int(np.abs(lat - req.lat).argmin()), int(np.abs(lon - req.lon).argmin())
-    s = MonthlySeries(g["time"].astype("datetime64[M]"), g["cube"][:, i, j])
+    s = MonthlySeries(time, cube[:, i, j])
     try:
         result = analyze_series(s, compute_horizon=False)  # horizon is too slow per click; precomputed cases only
     except ValueError as exc:

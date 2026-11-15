@@ -1,0 +1,37 @@
+# Render Blueprint for the Earth Data Detective API (https://render.com/docs/blueprint-spec).
+#
+# The service runs from the repository root, not rootDir: apps/api. Render makes files outside a service's root
+# directory unavailable at build time and at runtime, and the API imports packages/stats_engine and reads
+# data/cache, data/catalog and data/regions. buildFilter limits auto-deploys to the files the API uses.
+# Python 3.12 comes from the .python-version file at the repository root.
+services:
+  - type: web
+    name: edd-api
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r apps/api/requirements.txt
+    # --app-dir makes `app.main` importable from the repo root; --proxy-headers (with FORWARDED_ALLOW_IPS below)
+    # gives the rate limiter each visitor's IP instead of Render's proxy address.
+    startCommand: uvicorn app.main:app --app-dir apps/api --host 0.0.0.0 --port $PORT --proxy-headers
+    healthCheckPath: /api/v1/health
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/stats_engine/**
+        - data/cache/**
+        - data/catalog/**
+        - data/regions/**
+        - .python-version
+        - render.yaml
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: USE_FIXTURES
+        value: "0"
+      - key: FORWARDED_ALLOW_IPS  # requests reach the app only through Render's proxy
+        value: "*"
+      - key: ALLOWED_ORIGINS  # the web app's URL(s), comma-separated, e.g. https://<your-app>.vercel.app
+        sync: false
+      - key: LLM_API_KEY  # optional; without it /narrative uses the template sentences
+        sync: false
