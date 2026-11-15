@@ -32,7 +32,7 @@ export function formatPercent(fraction: number, decimals = 0): string {
   return `${(fraction * 100).toFixed(decimals)}%`;
 }
 
-/** Catalog units → readable units. "index" (NDVI) has no unit. */
+/** Catalog units → readable units. "index" (EVI) has no unit. */
 export function formatUnits(units: string): string {
   if (units === "degC") return "°C";
   if (units === "index") return "";

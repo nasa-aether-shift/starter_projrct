@@ -51,8 +51,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-CATALOG = {p.stem: yaml.safe_load(p.read_text()) for p in (ROOT / "data" / "catalog").glob("*.yaml")}
-REGIONS = json.loads((ROOT / "data" / "regions" / "presets.geojson").read_text())
+CATALOG = {p.stem: yaml.safe_load(p.read_text(encoding="utf-8")) for p in (ROOT / "data" / "catalog").glob("*.yaml")}
+REGIONS = json.loads((ROOT / "data" / "regions" / "presets.geojson").read_text(encoding="utf-8"))
 REGION_BY_ID = {f["properties"]["id"]: f for f in REGIONS["features"]}
 RUNS: dict[str, dict[str, Any]] = {}
 RUN_ID_PREFIX = "r1_"
@@ -190,7 +190,7 @@ def _finish(
     result: dict[str, Any], variable: dict[str, Any], region_name: str, geometry: Any,
     provenance_extra: dict, *, run_id: str,
 ) -> dict[str, Any]:
-    manifest = json.loads((CACHE / "manifest.json").read_text()) if (CACHE / "manifest.json").exists() else {}
+    manifest = json.loads((CACHE / "manifest.json").read_text(encoding="utf-8")) if (CACHE / "manifest.json").exists() else {}
     manifest_entry = manifest.get(provenance_extra.get("manifest_key", ""), {})
     is_giovanni_series = "giovanni.gsfc.nasa.gov" in manifest_entry.get("source", "")
     spatial_step = (
@@ -434,7 +434,7 @@ def trend(req: TrendRequest) -> dict[str, Any]:
     run_id = _encode_run_id(_trend_run_payload(req, None))
     path = CACHE / "results" / f"{req.variable_id}__{req.region_id}.json"
     if path.exists():
-        cached = json.loads(path.read_text())
+        cached = json.loads(path.read_text(encoding="utf-8"))
         if req.start is None and req.end is None and req.alpha == cached.get("tests", {}).get("alpha", 0.05):
             result = cached
         else:
@@ -461,7 +461,7 @@ def trend(req: TrendRequest) -> dict[str, Any]:
             run_id=run_id,
         )
     if req.start is None and req.end is None and USE_FIXTURES and FIXTURE.exists():
-        fx = json.loads(FIXTURE.read_text())
+        fx = json.loads(FIXTURE.read_text(encoding="utf-8"))
         RUNS[fx["run_id"]] = fx
         return fx
     raise _not_available(
@@ -475,7 +475,7 @@ def trend_at_point(req: PointRequest) -> dict[str, Any]:
     path = CACHE / "grids" / f"{req.variable_id}__{req.region_id}.npz"
     if not path.exists():
         if USE_FIXTURES and FIXTURE.exists():
-            return json.loads(FIXTURE.read_text())
+            return json.loads(FIXTURE.read_text(encoding="utf-8"))
         raise _not_available(f"Map clicks for {var['name']['en']} are not available yet. Try a preset place instead.")
     g = np.load(path)
     lat, lon = g["lat"], g["lon"]
@@ -498,7 +498,7 @@ def _resolve_run(run_id: str) -> dict[str, Any]:
         if USE_FIXTURES and run_id in RUNS:
             return RUNS[run_id]
         if USE_FIXTURES and FIXTURE.is_file():
-            fixture = json.loads(FIXTURE.read_text())
+            fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
             if fixture.get("run_id") == run_id:
                 return fixture
         raise problem(404, "Unknown run", "This run ID is invalid or unavailable.")
@@ -526,7 +526,7 @@ def trend_map(vid: str, region_id: str) -> dict[str, Any]:
     path = CACHE / "maps" / f"{vid}__{region_id}.json"
     if not path.exists():
         raise _not_available(f"The {var['name']['en']} trend map for {_region_label(region_id)} is not available yet.")
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     data.pop("opposite_trends", None)
     data["palette_polarity"] = CATALOG[vid]["palette_polarity"]
     data["units_per_decade"] = f"{CATALOG[vid]['units']} per decade"
@@ -539,7 +539,7 @@ def opposite(vid: str, region_id: str) -> dict[str, Any]:
     path = CACHE / "maps" / f"{vid}__{region_id}.json"
     if not path.exists():
         raise _not_available(f"Opposite-trend results for {var['name']['en']} in {_region_label(region_id)} are not available yet.")
-    return json.loads(path.read_text())["opposite_trends"]
+    return json.loads(path.read_text(encoding="utf-8"))["opposite_trends"]
 
 
 @app.post("/api/v1/narrative")

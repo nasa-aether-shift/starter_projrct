@@ -41,16 +41,16 @@ const datasets = [
     color: "text-amber-300",
   },
   {
-    name: "Vegetation greenness",
-    short: "MODIS NDVI",
-    collection: "MOD13C2",
+    name: "Vegetation greenness (EVI)",
+    short: "MODIS EVI",
+    collection: "MOD13A3 v061 · _1_km_monthly_EVI",
     provider: "NASA Land Processes Distributed Active Archive Center (LP DAAC)",
     measure:
-      "A monthly vegetation index from 0 to 1 derived from reflected light; higher values generally indicate greener vegetation.",
+      "The Enhanced Vegetation Index (EVI): a monthly greenness score, usually between 0 and 1, derived from reflected light; higher values generally indicate greener vegetation. Kumasi area mean only.",
     limits:
-      "The record begins in February 2000. Clouds can affect observations, and NDVI becomes less sensitive to change in very dense vegetation.",
-    href: "https://lpdaac.usgs.gov/products/mod13c2v061/",
-    link: "Open the MODIS NDVI product",
+      "The record begins in February 2000 and the export has no January values. Clouds can affect observations. EVI is less prone than NDVI to saturating over dense forest, but it is a different index.",
+    href: "https://lpdaac.usgs.gov/products/mod13a3v061/",
+    link: "Open the MODIS MOD13A3 product",
     icon: Leaf,
     color: "text-emerald-300",
   },
@@ -70,7 +70,7 @@ const officialResources = [
     agency: "NASA LP DAAC / USGS",
     badge: "Geospatial Extraction",
     description:
-      "Application for Extracting and Exploring Analysis Ready Samples, enabling subsetting and transformation of MODIS NDVI vegetation index time series.",
+      "Application for Extracting and Exploring Analysis Ready Samples, enabling subsetting and transformation of MODIS vegetation index time series. Used for the Kumasi EVI (MOD13A3) record.",
     href: "https://appeears.earthdatacloud.nasa.gov/",
   },
   {

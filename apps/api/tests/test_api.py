@@ -34,7 +34,8 @@ def test_health_and_catalog(client):
     assert health["status"] == "ok"
     assert health["missing_cache_files"] == []
     ids = {v["id"] for v in client.get("/api/v1/variables").json()}
-    assert {"merra2_t2m", "gpm_precip", "modis_ndvi"} <= ids
+    assert {"merra2_t2m", "gpm_precip", "modis_evi"} <= ids
+    assert "modis_ndvi" not in ids  # the AppEEARS export holds EVI; NDVI is archived until real NDVI exists
     assert client.get("/api/v1/regions/presets").json()["features"]
 
 

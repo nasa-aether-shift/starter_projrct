@@ -14,7 +14,7 @@ WEB_FIXTURES = ROOT / "apps" / "web" / "fixtures"
 
 
 def _fixture(name: str) -> Any:
-    return json.loads((WEB_FIXTURES / name).read_text())
+    return json.loads((WEB_FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def _assert_compatible(actual: Any, expected: Any, path: str = "$") -> None:
@@ -90,12 +90,12 @@ def test_api_responses_match_web_fixture_shapes(tmp_path, monkeypatch):
     map_fixtures = {
         "merra2_t2m": "trend-map.merra2_t2m.west_africa.json",
         "gpm_precip": "trend-map.gpm_precip.west_africa.json",
-        "modis_ndvi": "trend-map.modis_ndvi.west_africa.json",
+        "modis_evi": "trend-map.modis_evi.west_africa.json",
     }
     trend_fixtures = {
         "merra2_t2m": "trend.grade-a.json",
         "gpm_precip": "trend.grade-d.json",
-        "modis_ndvi": "trend.null-should.json",
+        "modis_evi": "trend.null-should.json",
     }
     for variable_id, map_name in map_fixtures.items():
         map_fixture = _fixture(map_name)

@@ -37,14 +37,14 @@ def _sha256_file(path: Path) -> str:
 def _write_raw(variable: str, region: str, time: np.ndarray, values: np.ndarray, source: dict) -> Path:
     RAW.mkdir(parents=True, exist_ok=True)
     path = RAW / f"{variable}__{region}.csv"
-    with path.open("w", newline="") as f:
+    with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["time", "value"])
         for t, v in zip(time, values):
             w.writerow([str(t), "" if not np.isfinite(v) else f"{v:.6f}"])
     digest = _sha256_file(path)
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
-    manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8")) if MANIFEST.exists() else {}
     retrieved = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     source_url = source.get("source_url") or source.get("url")
     source_urls = source.get("source_urls") or ([source_url] if isinstance(source_url, str) else [])
@@ -105,7 +105,7 @@ def load_giovanni_csv(path: str | Path, variable_id: str, region: str, scale: fl
     """
     rows: list[tuple[np.datetime64, float]] = []
     meta: list[str] = []
-    with open(path, newline="") as f:
+    with open(path, newline="", encoding="utf-8") as f:
         for line in csv.reader(f):
             if len(line) < 2:
                 meta.append(",".join(line))
@@ -188,7 +188,7 @@ def fetch_grid_earthaccess(
     out = ROOT / "data" / "cache" / "grids" / f"{variable_id}__{region}.npz"
     out.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(out, time=np.array(times)[order].astype("datetime64[M]").astype(str), lat=lats, lon=lons, cube=cube)
-    manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8")) if MANIFEST.exists() else {}
     retrieved = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
     input_files = [{
         "file": Path(fp).resolve().relative_to(ROOT.resolve()).as_posix(),

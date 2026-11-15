@@ -32,7 +32,7 @@ export function MapLegend({
 }) {
   const [table, setTable] = useState(false);
   const d = decimalsFor([scale.maxAbs]);
-  // "degC per decade" → "°C"; NDVI ("index") has no unit.
+  // "degC per decade" → "°C"; EVI ("index") has no unit.
   const units = formatUnits(map.units_per_decade.replace(/ per decade$/, ""));
   return (
     <div

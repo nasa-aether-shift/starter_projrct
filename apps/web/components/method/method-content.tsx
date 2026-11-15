@@ -209,8 +209,9 @@ export function MethodContent({ embedded = false }: { embedded?: boolean }) {
             <strong>Rainfall</strong>: GPM IMERG monthly (NASA GES DISC), from June 2000.
           </li>
           <li>
-            <strong>Vegetation greenness</strong>: MODIS Terra NDVI monthly (NASA LP DAAC), from February 2000.
-            Saturates over dense forest.
+            <strong>Vegetation greenness (EVI)</strong>: MODIS Terra 1 km monthly EVI (MOD13A3 v061, NASA LP DAAC, via
+            AppEEARS), Kumasi only, from February 2000; the export has no January values. Less prone than NDVI to
+            saturating over dense forest.
           </li>
           <li>
             <strong>Globe imagery</strong>: NASA GIBS (Blue Marble, Black Marble) and Sentinel-2 cloudless 2024 by EOX

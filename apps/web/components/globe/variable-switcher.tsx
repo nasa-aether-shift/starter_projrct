@@ -10,7 +10,7 @@ import { variableMeta } from "@/lib/variable-meta";
 export const MAP_VARIABLES = [
   { id: "merra2_t2m", label: "Temperature" },
   { id: "gpm_precip", label: "Rainfall" },
-  { id: "modis_ndvi", label: "Greenness" },
+  { id: "modis_evi", label: "Greenness" },
 ] as const;
 
 export type MapVariableId = (typeof MAP_VARIABLES)[number]["id"];

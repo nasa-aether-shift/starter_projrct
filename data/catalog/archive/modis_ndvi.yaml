@@ -1,3 +1,6 @@
+# ARCHIVED 2026-11-15 (DECISIONS #33): not loaded by the API (it reads data/catalog/*.yaml only).
+# The AppEEARS export once cached under this id held EVI, not NDVI; that series is now modis_evi.
+# Kept for future NDVI work: an NDVI export (layer _1_km_monthly_NDVI) is needed before this returns.
 id: modis_ndvi
 name: {en: Vegetation greenness (NDVI), tw: Nnua mu ahabammono}   # Twi to be reviewed
 definition:

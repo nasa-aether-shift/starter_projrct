@@ -3,7 +3,7 @@
 // numbers. Anything spoken back later is the API's own verdict text.
 
 export type PlaceId = "kumasi" | "ashanti" | "west_africa";
-export type VariableId = "merra2_t2m" | "gpm_precip" | "modis_ndvi";
+export type VariableId = "merra2_t2m" | "gpm_precip" | "modis_evi";
 
 export type VoiceCommand =
   | { kind: "navigate"; href: string; say: string }
@@ -30,7 +30,7 @@ export const PLACE_LABEL: Record<PlaceId, string> = {
 export const VARIABLE_LABEL: Record<VariableId, string> = {
   merra2_t2m: "temperature",
   gpm_precip: "rainfall",
-  modis_ndvi: "greenness",
+  modis_evi: "greenness",
 };
 
 export const EXAMPLES = [
@@ -54,7 +54,7 @@ const PLACES: [PlaceId, RegExp][] = [
 
 const VARIABLES: [VariableId, RegExp][] = [
   ["gpm_precip", /\b(rain\w*|precipitation|wet\w*|dry|drier|drought|showers?)\b/],
-  ["modis_ndvi", /\b(green\w*|vegetation|ndvi|plants?|forest|trees?|leaf|leaves|crops?)\b/],
+  ["modis_evi", /\b(green\w*|vegetation|evi|plants?|forest|trees?|leaf|leaves|crops?)\b/],
   ["merra2_t2m", /\b(temp\w*|heat\w*|hot\w*|warm\w*|cool\w*|cold\w*|degrees?)\b/],
 ];
 
