@@ -8,6 +8,7 @@ export const NAV = [
   { href: "/investigate", label: "Investigate" },
   { href: "/cases/kumasi", label: "Kumasi case" },
   { href: "/method", label: "Method" },
+  { href: "/data-resources", label: "NASA data & resources" },
 ] as const;
 
 function isActive(pathname: string | null, href: string) {
