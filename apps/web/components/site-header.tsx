@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 import { SiteNav, SiteNavFallback } from "@/components/site-nav";
+import { VoiceControl } from "@/components/voice/voice-control";
 import { LanguageSwitcher } from "@/lib/i18n";
 
 export function SiteHeader() {
@@ -22,7 +23,10 @@ export function SiteHeader() {
             <SiteNav />
           </Suspense>
         </nav>
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
+          <Suspense fallback={null}>
+            <VoiceControl />
+          </Suspense>
           <LanguageSwitcher />
         </div>
       </div>

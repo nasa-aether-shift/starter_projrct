@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { createGlobe, type GlobeHandle } from "@/lib/cesium/create-globe";
 import { loadCesium } from "@/lib/cesium/load";
+import { voiceBus } from "@/lib/voice/bus";
 
 import { StaticEarth } from "./static-earth";
 
@@ -35,6 +36,7 @@ export default function EarthGlobe({ spin = true, className, onReady }: EarthGlo
         if (cancelled || !containerRef.current) return;
         const handle = createGlobe(Cesium, containerRef.current, { spin: spinRef.current });
         handleRef.current = handle;
+        voiceBus.setGlobe(handle);
         onReadyRef.current?.(handle);
       })
       .catch((err: unknown) => {
@@ -45,6 +47,7 @@ export default function EarthGlobe({ spin = true, className, onReady }: EarthGlo
       cancelled = true;
       if (handleRef.current) {
         onReadyRef.current?.(null); // parents must stop using this viewer (React dev mounts twice)
+        if (voiceBus.globe() === handleRef.current) voiceBus.setGlobe(null);
         handleRef.current.destroy();
       }
       handleRef.current = null;

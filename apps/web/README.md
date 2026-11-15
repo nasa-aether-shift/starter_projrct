@@ -75,6 +75,11 @@ types/          generated OpenAPI types
   for the scene's date (JPL approximate elements; checked against Cesium's Sun to 0.003°), names on hover. Planets
   are drawn only above 6,000 km and just beyond the Earth, so they never force a second render pass.
 - In development, `window.__viewer` and `window.Cesium` are exposed for console debugging and scripted screenshots.
+- Voice commands (`components/voice/voice-control.tsx`, `lib/voice/`): the header mic opens a push-to-talk panel
+  (typed commands work in every browser). A fixed grammar maps phrases to existing actions ("Is Kumasi getting
+  warmer?", "show rainfall in Ashanti", "zoom in a bit", "zoom out", "back to the globe", "open the Kumasi case"); Explore handles them via
+  `lib/voice/bus.ts`, other pages navigate with Explore's `?place=`/`?variable=` links. Questions get the API's
+  verdict sentences read aloud. `NEXT_PUBLIC_VOICE=0` hides it.
 - Camera, spin and fade settings live in `lib/cesium/config.ts`. The idle spin stops on any input, resumes after 5 s and
   never runs with `prefers-reduced-motion`.
 

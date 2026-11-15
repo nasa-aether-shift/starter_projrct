@@ -154,3 +154,38 @@ export async function flyHome(globe: GlobeHandle): Promise<void> {
   await flyTo(globe, { lon: START_VIEW.lon, lat: START_VIEW.lat, height: START_VIEW.height, pitchDeg: -89.5 });
   globe.setSpin(true);
 }
+
+/**
+ * Zoom by a factor of the camera's height (<1 in, >1 out) with a short glide along the view direction, kept
+ * inside the zoom limits. Looking at space (no Earth under the centre), it moves towards the Earth's centre.
+ */
+export function zoomBy(globe: GlobeHandle, factor: number): void {
+  const { Cesium, viewer } = globe;
+  const { camera, scene } = viewer;
+  cancelFlight(globe);
+  globe.holdSpin();
+  const ctrl = scene.screenSpaceCameraController;
+  const h = camera.positionCartographic.height;
+  const newH = Math.min(ctrl.maximumZoomDistance * 0.98, Math.max(ctrl.minimumZoomDistance * 1.2, h * factor));
+  const canvas = scene.canvas;
+  const centre = new Cesium.Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2);
+  const hit = camera.pickEllipsoid(centre, scene.globe.ellipsoid);
+  const pos = camera.positionWC;
+  const dir = hit
+    ? Cesium.Cartesian3.clone(camera.directionWC)
+    : Cesium.Cartesian3.negate(Cesium.Cartesian3.normalize(pos, new Cesium.Cartesian3()), new Cesium.Cartesian3());
+  const dist = hit ? Cesium.Cartesian3.distance(pos, hit) : h;
+  // Moving the same fraction of the distance to the target scales the height by about `newH / h`.
+  const move = dist * (1 - newH / h);
+  const destination = Cesium.Cartesian3.add(
+    pos,
+    Cesium.Cartesian3.multiplyByScalar(dir, move, new Cesium.Cartesian3()),
+    new Cesium.Cartesian3(),
+  );
+  camera.flyTo({
+    destination,
+    orientation: { direction: Cesium.Cartesian3.clone(camera.directionWC), up: Cesium.Cartesian3.clone(camera.upWC) },
+    duration: prefersReducedMotion() ? 0 : 0.9,
+    easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
+  });
+}
