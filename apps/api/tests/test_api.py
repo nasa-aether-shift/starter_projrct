@@ -368,3 +368,47 @@ def test_verdict_template_uses_degree_sign_and_no_negative_zero():
     sentences = verdict_template(result, variable, "Kumasi")
     assert sentences["how_much"] == "About +0.12 °C per decade (95% range 0.00 to +0.25)."
     assert numeric_guard(" ".join(sentences.values()), result)[0]
+
+
+def test_grid_provenance_summarises_long_source_lists(client, tmp_path):
+    # SYNTHETIC manifest entry for the cached test grid: many monthly source files.
+    urls = [f"https://data.example.invalid/synthetic/{i:03d}.nc4" for i in range(12)]
+    (tmp_path / "manifest.json").write_text(json.dumps({"grid:merra2_t2m__west_africa": {
+        "source": "SYNTHETIC grid source", "source_urls": urls,
+        "input_files": [{"file": f"data/raw/synthetic/{i:03d}.nc4", "sha256": "0" * 64} for i in range(12)],
+        "dataset_version": "synthetic", "processing_steps": ["Synthetic step"],
+    }}))
+    response = client.post("/api/v1/trend-at-point", json={"variable_id": "merra2_t2m", "region_id": "west_africa", "lat": 6.7, "lon": -1.6})
+    assert response.status_code == 200
+    entry = response.json()["provenance"]["datasets"][1]
+    assert entry["source_url_count"] == 12 and entry["source_urls"] == [urls[0], urls[-1]]
+    assert entry["input_file_count"] == 12 and "input_files" not in entry
+    assert entry["full_record"] == "data/cache/manifest.json"
+    assert entry["dataset_version"] == "synthetic"
+
+
+def test_preset_without_cached_result_is_built_from_a_covering_grid(client):
+    response = client.post("/api/v1/trend", json={"variable_id": "merra2_t2m", "region_id": "ashanti"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["region"]["name"] == m.REGION_BY_ID["ashanti"]["properties"]["name"]
+    assert body["region"]["geometry"] == m.REGION_BY_ID["ashanti"]["geometry"]
+    assert body["provenance"]["selected_cells"] > 0
+    assert "Latitude-weighted regional mean" in body["provenance"]["steps"]
+    m.RUNS.clear()  # simulated restart
+    again = client.get(f"/api/v1/runs/{body['run_id']}")
+    assert again.status_code == 200 and again.json()["trend"] == body["trend"]
+
+
+def test_cached_preset_result_still_wins_over_a_grid(client):
+    response = client.post("/api/v1/trend", json={"variable_id": "merra2_t2m", "region_id": "kumasi"})
+    assert response.status_code == 200
+    assert "selected_cells" not in response.json()["provenance"]
+
+
+def test_grid_coverage_and_cell_selection_ignore_float_noise():
+    # SYNTHETIC float32-style coordinates: edges and the equator row are off by tiny rounding errors.
+    lat = np.array([-1.8e-13, 0.5, 1.0, 1.4999998], dtype=float)
+    lon = np.array([0.0, 0.5, 1.0])
+    assert m._bbox_covered_by_grid((-0.25, -0.25, 1.25, 1.75), lat, lon)
+    assert m._cells_in_box(lat, lon, (0.0, 0.0, 1.0, 1.5)).sum() == 12  # every centre, including the equator row

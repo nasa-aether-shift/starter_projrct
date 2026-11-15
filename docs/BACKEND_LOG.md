@@ -137,3 +137,35 @@ The checks confirm there is no usable map cache in the repository. `GET /health`
   - `test_validation.py` was not run here because `pymannkendall` is not installed locally; CI installs it and runs it.
 - Live check: `USE_FIXTURES=0` API, `POST /trend` for merra2_t2m/kumasi returned 200 with version 5.12.4 and no tracking parameter in provenance; rainfall, map and map-click requests returned 404 "Not available yet" with plain sentences.
 - Seed on Windows: rebuilt 1 regional series in about 4.6 s, peak about 102 MB. No gridded input exists, so no map or point grid was produced or fabricated.
+
+## T2 — West Africa grids from NASA OPeNDAP, maps, and grid-backed presets (2026-11-14)
+
+- New `pipelines/ingest/opendap_grid.py` downloads server-side subsets from NASA Earthdata cloud OPeNDAP: one variable inside the box, one small NetCDF-4 file per month. It uses an Earthdata token from `EARTHDATA_TOKEN`, which is never printed or stored.
+  - Whole global files would be about 36 GB (CMR granule sizes); the subsets were about 59 MB.
+  - Dataset facts were read from each collection's OPeNDAP DMR and recorded in `docs/VERIFIED.md`.
+- Grids built, West Africa (0–20°N, 20°W–20°E), with no missing months:
+  - MERRA-2 T2M 5.12.4: 1980-01 to 2025-12, 552 months, 41 × 65 cells (native 0.5° × 0.625°), K → °C.
+  - GPM_3IMERGM 07: 2000-06 to 2025-09, 304 months (later Final Run months not yet published), 40 × 80 cells (0.1° averaged to 0.5°), mm/hr → mm/day (DECISIONS #30, #31).
+  - Download times: MERRA-2 about 10 min, GPM about 5 min (6 parallel requests).
+- `make seed` built both trend maps and opposite-trend payloads: about 31 s, peak about 164 MB (Windows).
+- Results, as computed by the stats engine:
+  - Temperature: 2,377 of 2,665 cells significant after FDR, all warming. The rising cluster (2,374 cells) is +0.223 °C/decade, grade B.
+  - Rainfall: 87 of 3,200 cells significant (49 wetter, 38 drier). The largest drier cluster (25 cells, Cameroon coast) is below the 1% minimum cluster size, so no opposite trends are reported (see KNOWN_LIMITS).
+- API changes (`apps/api/app/main.py`):
+  - Presets without a cached regional result are built from a covering grid, the same way as a drawn box. Ashanti and West Africa now work for temperature and rainfall, and Kumasi for rainfall. Cached results (Kumasi temperature, Giovanni) still take priority.
+  - Provenance summarises long per-file lists (first and last source URL, counts, pointer to the manifest).
+  - Grid coverage and cell selection allow 1e-6° of float noise.
+- Downloader fixes found while running it:
+  - The MERRA-2 equator latitude is stored as -1.8e-13 and was excluded from the box; it is now included.
+  - Subset files are keyed by their constraint, so a changed box never reuses old cut-outs.
+- Live check (`USE_FIXTURES=0`):
+  - trend maps return 200 for temperature and rainfall; NDVI returns "Not available yet";
+  - map clicks and drawn boxes return 200;
+  - presets: Kumasi temperature D (Giovanni 2005–2025), Kumasi rainfall D, Ashanti temperature B (+0.157 °C/decade), Ashanti rainfall D, West Africa temperature B (+0.207 °C/decade), West Africa rainfall D;
+  - the web Explore panel shows the real Ashanti verdict.
+- Tests: `cd apps/api && python -m pytest -q` **39 passed**; `python -m pytest -q pipelines/ingest/tests` **31 passed** (8 new OPeNDAP grid tests, including one where seed accepts and maps the synthetic grid).
+- Open questions for STATS:
+  - The 1% minimum cluster size hides the Cameroon-coast drying.
+  - The Lake Chad wetter cluster's regional Sen slope is +0.009 mm/day/decade, while its cells' annual slopes are +0.09 to +0.19. This may be dry-season zero months (ties) pulling the monthly Sen slope towards zero.
+  - Confirm mm/day versus mm/month.
+- For the human: the Kumasi temperature preset still uses the 2005–2025 Giovanni export (grade D). The MERRA-2 grid cell for Kumasi over 1980–2025 gives grade C (+0.124 °C/decade). Re-export Giovanni for 1980–2025, or decide to serve Kumasi from the grid.
