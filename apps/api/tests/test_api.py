@@ -45,7 +45,8 @@ def test_health_and_catalog(client):
 def test_health_lists_missing_required_cache_file(client, tmp_path):
     (tmp_path / "results" / "merra2_t2m__kumasi.json").unlink()
     response = client.get("/api/v1/health")
-    assert response.status_code == 200
+    assert response.status_code == 503  # a deploy without its data must fail the health check
+    assert response.json()["status"] == "unavailable"
     assert response.json()["missing_cache_files"] == ["data/cache/results/merra2_t2m__kumasi.json"]
 
 

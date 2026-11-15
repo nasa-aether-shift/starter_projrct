@@ -82,6 +82,7 @@ def test_api_responses_match_web_fixture_shapes(tmp_path, monkeypatch):
     """Exercise the frontend's fixture-backed JSON routes without NASA/network access."""
     monkeypatch.setattr(api, "USE_FIXTURES", True)
     monkeypatch.setattr(api, "CACHE", tmp_path)
+    monkeypatch.setattr(api, "REQUIRED_CACHE_FILES", ())  # shapes only; required files are tested in test_deploy.py
 
     # The map route is a cache reader, so install the existing synthetic web fixture
     # into this test's temporary cache; no scientific values are generated here.
