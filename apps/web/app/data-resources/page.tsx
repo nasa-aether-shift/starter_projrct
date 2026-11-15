@@ -46,7 +46,7 @@ const datasets = [
     collection: "MOD13A3 v061 · _1_km_monthly_EVI",
     provider: "NASA Land Processes Distributed Active Archive Center (LP DAAC)",
     measure:
-      "The Enhanced Vegetation Index (EVI): a monthly greenness score, usually between 0 and 1, derived from reflected light; higher values generally indicate greener vegetation. Kumasi area mean only.",
+      "The Enhanced Vegetation Index (EVI): a monthly greenness score, usually between 0 and 1, derived from reflected light; higher values generally indicate greener vegetation. Kumasi only, as an area mean, not a single point: the average of 1,512 one-kilometre pixels each month inside longitude −1.80 to −1.45, latitude 6.55 to 6.85.",
     limits:
       "The record begins in February 2000 and the export has no January values. Clouds can affect observations. EVI is less prone than NDVI to saturating over dense forest, but it is a different index.",
     href: "https://lpdaac.usgs.gov/products/mod13a3v061/",
@@ -76,9 +76,9 @@ const officialResources = [
   {
     title: "NOAA Climate Data Online (CDO)",
     agency: "NOAA NCEI",
-    badge: "Ground-Truth Check",
+    badge: "Checked, too sparse",
     description:
-      "Archive of global historical weather and climate data used to ground-truth Kumasi Airport thermometer readings against satellite reanalysis models.",
+      "Checked for a ground comparison: station GHM00065442 (Kumasi) has monthly temperature averages for only 7 months since 1997, too sparse to test agreement with MERRA-2. Listed for transparency.",
     href: "https://www.ncei.noaa.gov/cdo-web/",
   },
   {
