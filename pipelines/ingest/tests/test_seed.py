@@ -1,12 +1,14 @@
 """Seed pipeline tests use labelled synthetic files and temporary caches only."""
 import csv
 import hashlib
+import inspect
 import json
 
 import numpy as np
 import pytest
 
 from pipelines.ingest import seed
+from stats_engine import opposite_trends as stats_opposite_trends
 
 
 def sha256(path):
@@ -109,6 +111,10 @@ def test_seed_maps_caps_grid_and_writes_manifested_map(layout, monkeypatch):
     payload = json.loads(output.read_text())
     assert len(payload["grid"]["lat"]) * len(payload["grid"]["lon"]) <= 25
     assert payload["opposite_trends"]["found"] is False
+    # The cluster-size rule the engine applied is recorded (read from the engine, not restated); the API writes the sentence.
+    defaults = {k: p.default for k, p in inspect.signature(stats_opposite_trends).parameters.items() if k in seed.OPPOSITE_RULE}
+    assert {k: payload["opposite_trends"][k] for k in ("min_cells", "min_fraction")} == seed.OPPOSITE_RULE == defaults
+    assert "sentence" not in payload["opposite_trends"]
     updated = json.loads((cache / "manifest.json").read_text())["map:synthetic_variable__synthetic_region"]
     assert updated["cache_sha256"] == sha256(output)
     assert updated["source_urls"] == entry["source_urls"]

@@ -413,3 +413,62 @@ def test_grid_coverage_and_cell_selection_ignore_float_noise():
     lon = np.array([0.0, 0.5, 1.0])
     assert m._bbox_covered_by_grid((-0.25, -0.25, 1.25, 1.75), lat, lon)
     assert m._cells_in_box(lat, lon, (0.0, 0.0, 1.0, 1.5)).sum() == 12  # every centre, including the equator row
+
+
+def _write_synthetic_map(cache, rule):
+    """SYNTHETIC rainfall map: a 4-cell wetting block, a 2-cell drying pair, one lone drying cell, one empty cell.
+    The opposite_trends block is the engine's own output for `rule` (None = a cache that does not record its rule)."""
+    from stats_engine import cell_weights, opposite_trends
+    slope, significant = np.full((6, 8), 0.01), np.zeros((6, 8), dtype=bool)
+    slope[0:2, 0:2], significant[0:2, 0:2] = 0.5, True
+    slope[4, 4:6], significant[4, 4:6] = -0.4, True
+    slope[2, 7], significant[2, 7] = -0.3, True
+    slope[5, 0] = np.nan
+    lat = np.linspace(5, 7.5, 6)
+    engine = opposite_trends(slope, significant, cell_weights(lat, slope.shape), **(rule or {}))
+    block = {"found": engine["found"], "rising_share": engine["rising_share"], "falling_share": engine["falling_share"],
+             "divergence_score": engine["divergence_score"], "clusters": {"rising": None, "falling": None}, **(rule or {})}
+    payload = {"grid": {"lat": lat.tolist(), "lon": np.linspace(-3, 0.5, 8).tolist(), "downsample_step": 1},
+               "slope_per_decade": [[None if np.isnan(v) else float(v) for v in row] for row in slope],
+               "p": [[0.5] * 8 for _ in range(6)], "fdr_significant": significant.astype(int).tolist(), "fdr_level": 0.1,
+               "method": "SYNTHETIC", "opposite_trends": block}
+    (cache / "maps").mkdir(exist_ok=True)
+    (cache / "maps" / "gpm_precip__west_africa.json").write_text(json.dumps(payload), encoding="utf-8")
+    return engine
+
+
+def test_opposite_trends_reports_counts_minimum_and_largest_clusters(client, tmp_path):
+    engine = _write_synthetic_map(tmp_path, rule=None)  # older cache: the API falls back to the engine's defaults
+    body = client.get("/api/v1/opposite-trends/gpm_precip/west_africa").json()
+    assert (body["n_cells_valid"], body["n_significant"]) == (47, 7)
+    assert (body["n_significant_rising"], body["n_significant_falling"]) == (4, 3)
+    assert (body["min_cells"], body["min_fraction"], body["min_cluster_size"]) == (3, 0.01, 3)
+    assert (body["largest_rising_cluster_cells"], body["largest_falling_cluster_cells"]) == (4, 2)  # 2 is below the minimum
+    assert body["rising_share"] == engine["rising_share"] and body["falling_share"] == engine["falling_share"]
+    assert body["found"] is engine["found"] is False
+    assert body["found"] == (body["largest_rising_cluster_cells"] >= body["min_cluster_size"]
+                             and body["largest_falling_cluster_cells"] >= body["min_cluster_size"])
+    assert body["sentence"] == ("4 significant rising cells and 3 significant falling cells after false-discovery control; "
+                                "the largest drying area (2 cells) is below the 3-cell minimum, "
+                                "so no single opposite-trend region is reported.")
+
+
+def test_opposite_trends_uses_the_rule_recorded_in_the_cache(client, tmp_path):
+    engine = _write_synthetic_map(tmp_path, rule={"min_cells": 2, "min_fraction": 0.01})
+    body = client.get("/api/v1/opposite-trends/gpm_precip/west_africa").json()
+    assert body["min_cluster_size"] == 2 and body["found"] is engine["found"] is True
+    assert body["sentence"] == ("4 significant rising cells and 3 significant falling cells after false-discovery control; "
+                                "the largest wetting area (4 cells) and the largest drying area (2 cells) both reach the "
+                                "2-cell minimum, so both are reported as opposite-trend regions.")
+
+
+def test_opposite_sentence_states_only_numbers():
+    from app.opposite import opposite_sentence
+    detail = {"n_significant_rising": 0, "n_significant_falling": 0, "min_cluster_size": 32,
+              "largest_rising_cluster_cells": 0, "largest_falling_cluster_cells": 0}
+    assert opposite_sentence(detail, False, "wet_is_blue").startswith("No cells show a significant trend")
+    one_side = {**detail, "n_significant_rising": 1, "largest_rising_cluster_cells": 1}
+    assert opposite_sentence(one_side, False, "warm_is_red") == (
+        "1 significant rising cell and 0 significant falling cells after false-discovery control; the largest warming "
+        "area (1 cell) is below the 32-cell minimum and there are no significant cooling cells, "
+        "so no single opposite-trend region is reported.")
