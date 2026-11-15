@@ -1,12 +1,11 @@
 "use client";
 
-import { ArrowRight, X } from "lucide-react";
+import { X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 
 import { VerdictCard } from "@/components/analysis/verdict-card";
 import { ErrorState, LoadingState } from "@/components/async-state";
-import { TimeSeriesChart } from "@/components/charts/time-series-chart";
 import { Button } from "@/components/ui/button";
 import type { TrendResult, Variable } from "@/lib/schemas";
 
@@ -57,12 +56,9 @@ export function ResultsPanel({
             ) : state.result ? (
               <>
                 <VerdictCard result={state.result} variable={variable} compact />
-                <TimeSeriesChart result={state.result} palettePolarity={variable?.palette_polarity} height={360} />
                 {state.analysisHref ? (
                   <Button asChild size="lg" className="w-fit">
-                    <Link href={state.analysisHref}>
-                      Open the full analysis <ArrowRight aria-hidden />
-                    </Link>
+                    <Link href={state.analysisHref}>Open the full analysis</Link>
                   </Button>
                 ) : null}
               </>
