@@ -38,7 +38,7 @@ function VariableCard({
   return (
     <div
       className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-card transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 ${
-        selected ? "shadow-[0_0_0_2px_var(--ring),0_12px_40px_rgba(0,0,0,0.35)]" : "hover:shadow-lg"
+        selected ? "shadow-[0_0_0_1px_var(--ring),0_12px_40px_rgba(0,0,0,0.35)]" : "hover:shadow-lg"
       }`}
       style={{ borderColor: selected ? "var(--ring)" : undefined }}
     >

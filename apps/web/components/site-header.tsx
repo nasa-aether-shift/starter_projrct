@@ -1,14 +1,9 @@
 import { Satellite } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 
+import { SiteNav, SiteNavFallback } from "@/components/site-nav";
 import { LanguageSwitcher } from "@/lib/i18n";
-
-const NAV = [
-  { href: "/explore", label: "Explore" },
-  { href: "/investigate", label: "Investigate" },
-  { href: "/cases/kumasi", label: "Kumasi case" },
-  { href: "/method", label: "Method" },
-] as const;
 
 export function SiteHeader() {
   return (
@@ -22,19 +17,10 @@ export function SiteHeader() {
           <Satellite aria-hidden className="size-6 text-primary" />
           <span className="hidden md:inline">Earth Data Detective</span>
         </Link>
-        <nav aria-label="Main" className="ml-auto min-w-0 overflow-x-auto overflow-y-hidden">
-          <ul className="flex items-center gap-1 text-base whitespace-nowrap sm:gap-2">
-            {NAV.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="rounded-md px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+        <nav aria-label="Main" className="ml-auto h-16 min-w-0 overflow-x-auto overflow-y-hidden">
+          <Suspense fallback={<SiteNavFallback />}>
+            <SiteNav />
+          </Suspense>
         </nav>
         <div className="shrink-0">
           <LanguageSwitcher />
