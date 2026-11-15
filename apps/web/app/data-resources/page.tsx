@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SpaceBackground } from "@/components/globe/space-background";
 
 export const metadata: Metadata = {
   title: "NASA Data & Resources",
@@ -122,8 +123,9 @@ function ExternalAnchor({ href, children }: { href: string; children: ReactNode 
 
 export default function DataResourcesPage() {
   return (
-    <div className="flex-1 bg-background">
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <div className="relative isolate flex-1 bg-black">
+      <SpaceBackground />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
         <div className="max-w-3xl">
           <Badge variant="outline" className="mb-4 gap-2 border-primary/30 text-primary">
             <Database aria-hidden className="size-3.5" /> DATA TRANSPARENCY

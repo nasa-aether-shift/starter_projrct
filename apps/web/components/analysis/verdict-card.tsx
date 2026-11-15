@@ -18,7 +18,7 @@ import { useI18n } from "@/lib/i18n";
 import { directionStyle, polarityFor } from "@/lib/polarity";
 import type { Narrative, TrendResult, Variable, Verdict } from "@/lib/schemas";
 
-import { GradeBadge } from "./grade-badge";
+import { GradeBadge, gradeLabel } from "./grade-badge";
 
 export interface VerdictCardProps {
   result: TrendResult;
@@ -26,6 +26,8 @@ export interface VerdictCardProps {
   variable?: Variable;
   /** POST /narrative output. Falls back to the template `result.verdict` when absent. */
   narrative?: Narrative;
+  /** Smaller, wrapping layout for the narrow Explore results panel. */
+  compact?: boolean;
 }
 
 const SENTENCES: { key: keyof Verdict; label: string }[] = [
@@ -35,16 +37,24 @@ const SENTENCES: { key: keyof Verdict; label: string }[] = [
   { key: "significant", label: "verdict.howSure" },
 ];
 
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
+function Block({ title, children, compact }: { title: string; children: React.ReactNode; compact: boolean }) {
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-panel-raised p-5">
-      <h3 className="text-sm font-semibold tracking-[0.14em] text-muted-foreground uppercase">{title}</h3>
+    <section
+      className={`flex min-w-0 flex-col rounded-xl border border-border bg-panel-raised ${
+        compact ? "gap-2 p-3" : "gap-3 p-5"
+      }`}
+    >
+      <h3
+        className={`font-semibold tracking-[0.14em] text-muted-foreground uppercase ${compact ? "text-xs" : "text-sm"}`}
+      >
+        {title}
+      </h3>
       {children}
     </section>
   );
 }
 
-export function VerdictCard({ result, variable, narrative }: VerdictCardProps) {
+export function VerdictCard({ result, variable, narrative, compact = false }: VerdictCardProps) {
   const { trend, tests, evidence_grade: grade, period, change_point: cp, significance_horizon: horizon } = result;
   const polarity = polarityFor(variable?.palette_polarity);
   const dir = directionStyle(trend.direction, polarity);
@@ -58,6 +68,8 @@ export function VerdictCard({ result, variable, narrative }: VerdictCardProps) {
   const aiWording = narrative?.source === "ai";
   const { t, lang } = useI18n();
   const uid = useId();
+  const gradeLabelText =
+    lang === "en" ? gradeLabel(grade.grade, grade.label).replace(/ evidence$/i, "") : t(`grade.${grade.grade}`);
   const dirTitle = t(
     trend.direction === "increasing"
       ? "verdict.rising"
@@ -70,7 +82,9 @@ export function VerdictCard({ result, variable, narrative }: VerdictCardProps) {
   return (
     <article
       aria-labelledby={`${uid}-title`}
-      className="flex flex-col gap-5 rounded-2xl border border-border bg-card p-5 shadow-xl sm:p-7"
+      className={`flex min-w-0 flex-col rounded-2xl border border-border bg-card shadow-xl ${
+        compact ? "gap-3 p-3 sm:p-4" : "gap-5 p-5 sm:p-7"
+      }`}
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -90,66 +104,82 @@ export function VerdictCard({ result, variable, narrative }: VerdictCardProps) {
       {weak ? (
         <div
           role="note"
-          className="flex items-start gap-3 rounded-xl border-2 border-warning/70 bg-warning/10 p-4 text-lg font-semibold"
+          className={`flex items-start rounded-xl border-2 border-warning/70 bg-warning/10 font-semibold ${
+            compact ? "gap-2 p-3 text-sm" : "gap-3 p-4 text-lg"
+          }`}
         >
-          <AlertTriangle aria-hidden className="mt-1 size-6 shrink-0 text-warning" />
+          <AlertTriangle aria-hidden className={`mt-1 shrink-0 text-warning ${compact ? "size-5" : "size-6"}`} />
           <p>{t("verdict.notEstablished", { g: grade.grade })}</p>
         </div>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Block title={t("verdict.direction")}>
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden
-              className="flex size-14 shrink-0 items-center justify-center rounded-full border-2"
-              style={{ borderColor: dir.color, color: dir.color }}
-            >
-              <Arrow className="size-8" strokeWidth={2.5} />
-            </span>
-            <div>
-              <p className="text-2xl font-bold">{dirTitle}</p>
-              <p className="text-muted-foreground">{t(`pol.${dir.word}`)}</p>
+      <div className={`grid min-w-0 ${compact ? "gap-2" : "gap-4"} lg:grid-cols-3`}>
+        <Block title={t("verdict.direction")} compact={compact}>
+          <div className={`flex min-w-0 items-center ${compact ? "gap-2" : "gap-3"}`}>
+            {trend.direction === "no_significant_trend" ? null : (
+              <span
+                aria-hidden
+                className={`flex shrink-0 items-center justify-center rounded-full border-2 ${
+                  compact ? "size-10" : "size-14"
+                }`}
+                style={{ borderColor: dir.color, color: dir.color }}
+              >
+                <Arrow className={compact ? "size-6" : "size-8"} strokeWidth={2.5} />
+              </span>
+            )}
+            <div className="min-w-0">
+              <p className={`font-bold break-words ${compact ? "text-base" : "text-2xl"}`}>{dirTitle}</p>
+              <p className={`break-words text-muted-foreground ${compact ? "text-xs" : ""}`}>{t(`pol.${dir.word}`)}</p>
             </div>
           </div>
         </Block>
 
-        <Block title={t("verdict.magnitude")}>
-          <p className="tabular text-3xl font-bold">
+        <Block title={t("verdict.magnitude")} compact={compact}>
+          <p className={`tabular font-bold break-words ${compact ? "text-lg" : "text-3xl"}`}>
             {withUnits(formatSigned(trend.sen_slope_per_decade, d), units)}
-            <span className="block text-lg font-medium text-muted-foreground">{t("verdict.perDecade")}</span>
+            <span className={`block font-medium text-muted-foreground ${compact ? "text-xs" : "text-lg"}`}>
+              {t("verdict.perDecade")}
+            </span>
           </p>
-          <p className="tabular text-muted-foreground">
-            {t("verdict.range95", { lo: formatSigned(lo, d), hi: formatSigned(hi, d) })}
-            {unitText ? ` ${unitText}` : ""}
-          </p>
-          {trend.percent_of_mean_per_decade !== null ? (
-            <p className="tabular text-muted-foreground">
-              {t("verdict.pctMean", {
-                v: formatSigned(trend.percent_of_mean_per_decade, decimalsFor([trend.percent_of_mean_per_decade])),
-              })}
-            </p>
+          {!compact ? (
+            <>
+              <p className="tabular break-words text-muted-foreground">
+                {t("verdict.range95", { lo: formatSigned(lo, d), hi: formatSigned(hi, d) })}
+                {unitText ? ` ${unitText}` : ""}
+              </p>
+              {trend.percent_of_mean_per_decade !== null ? (
+                <p className="tabular break-words text-muted-foreground">
+                  {t("verdict.pctMean", {
+                    v: formatSigned(trend.percent_of_mean_per_decade, decimalsFor([trend.percent_of_mean_per_decade])),
+                  })}
+                </p>
+              ) : null}
+            </>
           ) : null}
         </Block>
 
-        <Block title={t("verdict.evidence")}>
+        <Block title={t("verdict.evidence")} compact={compact}>
           <GradeBadge
             grade={grade.grade}
-            label={lang === "en" ? grade.label : t(`grade.${grade.grade}`)}
-            sub={t("verdict.gradeWord", { g: grade.grade })}
+            label={gradeLabelText}
+            sub={compact ? undefined : t("verdict.gradeWord", { g: grade.grade })}
+            showSub={!compact}
+            size={compact ? "sm" : "lg"}
           />
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-base">
-            <dt className="text-muted-foreground">{t("verdict.correctedMK")}</dt>
-            <dd className="tabular font-medium">p {formatP(tests.modified_mk.p)}</dd>
-            <dt className="text-muted-foreground">{t("verdict.record")}</dt>
-            <dd className="tabular font-medium">
-              {t("verdict.recordValue", { n: period.n_months, pct: formatPercent(period.coverage) })}
-            </dd>
-          </dl>
+          {!compact ? (
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-base">
+              <dt className="min-w-0 break-words text-muted-foreground">{t("verdict.correctedMK")}</dt>
+              <dd className="tabular min-w-0 font-medium break-words">p {formatP(tests.modified_mk.p)}</dd>
+              <dt className="min-w-0 break-words text-muted-foreground">{t("verdict.record")}</dt>
+              <dd className="tabular min-w-0 font-medium break-words">
+                {t("verdict.recordValue", { n: period.n_months, pct: formatPercent(period.coverage) })}
+              </dd>
+            </dl>
+          ) : null}
         </Block>
       </div>
 
-      {grade.reasons.length ? (
+      {!compact && grade.reasons.length ? (
         <section aria-labelledby={`${uid}-reasons`}>
           <h3 id={`${uid}-reasons`} className="mb-2 font-semibold">
             {t("verdict.whyGrade")}
@@ -165,33 +195,35 @@ export function VerdictCard({ result, variable, narrative }: VerdictCardProps) {
         </section>
       ) : null}
 
-      <section aria-labelledby={`${uid}-sentences`} className="rounded-xl bg-muted/50 p-5">
-        <h3 id={`${uid}-sentences`} className="sr-only">
-          The verdict in four sentences
-        </h3>
-        <dl className="grid gap-3">
-          {SENTENCES.map(({ key, label }) => (
-            <div key={key} className="grid gap-1 sm:grid-cols-[8rem_1fr] sm:gap-4">
-              <dt className="font-semibold text-primary">{t(label)}</dt>
-              <dd className="text-lg" lang="en">
-                {sentences[key]}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        {aiWording ? (
-          <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Sparkles aria-hidden className="size-4" /> {t("verdict.aiWording")}
-          </p>
-        ) : null}
-        {lang !== "en" ? (
-          <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-            <Languages aria-hidden className="size-4" /> {t("verdict.englishNote")}
-          </p>
-        ) : null}
-      </section>
+      {!compact ? (
+        <section aria-labelledby={`${uid}-sentences`} className="rounded-xl bg-muted/50 p-5">
+          <h3 id={`${uid}-sentences`} className="sr-only">
+            The verdict in four sentences
+          </h3>
+          <dl className="grid gap-3">
+            {SENTENCES.map(({ key, label }) => (
+              <div key={key} className="grid gap-1 sm:grid-cols-[8rem_1fr] sm:gap-4">
+                <dt className="font-semibold text-primary">{t(label)}</dt>
+                <dd className="text-lg" lang="en">
+                  {sentences[key]}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {aiWording ? (
+            <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <Sparkles aria-hidden className="size-4" /> {t("verdict.aiWording")}
+            </p>
+          ) : null}
+          {lang !== "en" ? (
+            <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <Languages aria-hidden className="size-4" /> {t("verdict.englishNote")}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
-      {horizon?.needed && horizon.years_estimate !== null ? (
+      {!compact && horizon?.needed && horizon.years_estimate !== null ? (
         <p className="flex items-start gap-3 text-base">
           <Clock aria-hidden className="mt-1 size-5 shrink-0 text-primary" />
           <span>
@@ -201,7 +233,7 @@ export function VerdictCard({ result, variable, narrative }: VerdictCardProps) {
         </p>
       ) : null}
 
-      {cp?.detected && cp.date ? (
+      {!compact && cp?.detected && cp.date ? (
         <p className="flex items-start gap-3 text-base">
           <Zap aria-hidden className="mt-1 size-5 shrink-0 text-warning" />
           <span>
@@ -211,7 +243,7 @@ export function VerdictCard({ result, variable, narrative }: VerdictCardProps) {
         </p>
       ) : null}
 
-      {result.data_quality?.notices.length ? (
+      {!compact && result.data_quality?.notices.length ? (
         <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
           {result.data_quality.notices.map((n) => (
             <li key={n} className="flex gap-2">

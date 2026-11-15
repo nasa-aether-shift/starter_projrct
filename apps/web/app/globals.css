@@ -206,3 +206,52 @@
 .earth-globe .cesium-widget canvas:focus-visible {
   outline: none;
 }
+
+.space-background {
+  position: fixed;
+  z-index: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 72% 28%, rgb(12 25 48 / 80%), transparent 58%),
+    radial-gradient(ellipse at 24% 76%, rgb(16 13 34 / 48%), transparent 52%), #02040a;
+  inset: 0;
+}
+.space-background__stars {
+  position: absolute;
+  inset: -35%;
+  background-repeat: repeat;
+  animation: space-drift 160s ease-in-out infinite alternate;
+}
+.space-background__stars--far {
+  opacity: 0.55;
+  background-image:
+    radial-gradient(1px 1px at 14% 21%, rgb(255 255 255 / 90%) 50%, transparent 100%),
+    radial-gradient(1px 1px at 73% 68%, rgb(186 211 255 / 85%) 50%, transparent 100%),
+    radial-gradient(1px 1px at 44% 88%, rgb(255 255 255 / 75%) 50%, transparent 100%),
+    radial-gradient(1px 1px at 91% 12%, rgb(255 255 255 / 80%) 50%, transparent 100%);
+  background-size: 320px 280px;
+}
+.space-background__stars--near {
+  opacity: 0.35;
+  background-image:
+    radial-gradient(1.5px 1.5px at 19% 34%, rgb(255 255 255 / 90%) 50%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 82% 17%, rgb(190 216 255 / 90%) 50%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 57% 79%, rgb(255 255 255 / 75%) 50%, transparent 100%);
+  background-size: 420px 360px;
+  animation-duration: 110s;
+  animation-direction: alternate-reverse;
+}
+.space-background__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgb(0 0 0 / 38%), transparent 52%, rgb(0 0 0 / 32%));
+}
+
+@keyframes space-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-7%, 4%, 0);
+  }
+}

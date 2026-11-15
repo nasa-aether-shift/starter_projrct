@@ -41,7 +41,7 @@ export function ResultsPanel({
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0 }}
           transition={{ type: "tween", ease: [0.22, 1, 0.36, 1], duration: 0.45 }}
-          className="absolute inset-y-0 right-0 z-20 flex w-full max-w-[44rem] flex-col gap-4 overflow-y-auto border-l border-border bg-background/95 p-5 shadow-2xl backdrop-blur sm:p-6"
+          className="absolute inset-y-0 right-0 z-20 flex w-full max-w-[36rem] flex-col gap-4 overflow-y-auto border-l border-border bg-background/95 p-5 shadow-2xl backdrop-blur sm:p-6"
         >
           <div className="flex items-start justify-between gap-3">
             <h2 className="text-xl font-semibold">{state.title}</h2>
@@ -56,7 +56,7 @@ export function ResultsPanel({
               <ErrorState error={state.error} onRetry={onRetry} />
             ) : state.result ? (
               <>
-                <VerdictCard result={state.result} variable={variable} />
+                <VerdictCard result={state.result} variable={variable} compact />
                 <TimeSeriesChart result={state.result} palettePolarity={variable?.palette_polarity} height={360} />
                 {state.analysisHref ? (
                   <Button asChild size="lg" className="w-fit">
