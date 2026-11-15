@@ -30,4 +30,17 @@ The Giovanni area-average export for Kumasi (`data/raw/merra2_t2m__kumasi.giovan
 - GPM rainfall and MODIS EVI have no independent comparison in this repo.
 - EVI (`modis_evi`, Kumasi) is checked only for provenance: the export's layer is `_1_km_monthly_EVI` in every row, and January is absent every year from 2001 to 2026 (see `docs/VERIFIED.md`).
 
+## 4. Opposite-trend detector: sensitivity to the minimum cluster size
+
+**This is a sensitivity check, not a change of method.** The app still uses the engine's rule: the smallest cluster that counts is the larger of 3 cells and 1% of the valid cells (27 cells for temperature, 32 for rainfall), and the FDR level stays q = 0.10. The table only shows whether an opposite-trend pair (a significantly rising and a significantly falling cluster, each at least the minimum size) would be found if the minimum were a fixed number of cells instead.
+
+Computed on 2026-11-15 with `stats_engine.opposite_trends(…, min_cells=k, min_fraction=0)` on the cached West Africa maps (`data/cache/maps/*__west_africa.json`: the same per-cell slopes and FDR mask the app serves).
+
+| Map | Significant cells (rising / falling) | Largest rising / falling cluster | k = 3 | k = 8 | k = 16 | k = 32 | App's rule |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Air temperature (MERRA-2) | 2,377 / 0 | 2,374 / none | no | no | no | no | no (minimum 27) |
+| Rainfall (GPM IMERG) | 49 / 38 | 32 / 25 | yes | yes | yes | no | no (minimum 32) |
+
+Temperature has no significantly falling cells, so no minimum would produce an opposite pair. For rainfall the answer depends on the minimum: the largest drying area (25 cells) passes any fixed minimum up to 25 and fails the app's 32. `GET /api/v1/opposite-trends/{variable}/{region}` now reports these counts, the minimum used and both largest cluster sizes, so the "no" is visible rather than hidden. Any change to the minimum is a STATS decision.
+
 Decisions: DECISIONS #33 (EVI relabel) and #34 (station check reported, not built).

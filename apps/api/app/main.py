@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT / "packages" / "stats_engine"))
 from stats_engine import MonthlySeries, analyze_series, cell_weights, regional_series  # noqa: E402
 
 from .ai import rewrite, verdict_template  # noqa: E402
+from .opposite import opposite_detail, opposite_sentence  # noqa: E402
 
 CODE_VERSION = os.getenv("CODE_VERSION", "0.1.0")
 CACHE = ROOT / "data" / "cache"
@@ -539,7 +540,10 @@ def opposite(vid: str, region_id: str) -> dict[str, Any]:
     path = CACHE / "maps" / f"{vid}__{region_id}.json"
     if not path.exists():
         raise _not_available(f"Opposite-trend results for {var['name']['en']} in {_region_label(region_id)} are not available yet.")
-    return json.loads(path.read_text(encoding="utf-8"))["opposite_trends"]
+    cached = json.loads(path.read_text(encoding="utf-8"))
+    block = cached["opposite_trends"]
+    detail = opposite_detail(cached)
+    return {**block, **detail, "sentence": opposite_sentence(detail, block["found"], CATALOG[vid]["palette_polarity"])}
 
 
 @app.post("/api/v1/narrative")

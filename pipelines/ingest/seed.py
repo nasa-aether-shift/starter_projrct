@@ -5,6 +5,7 @@ import argparse
 import csv
 import datetime as dt
 import hashlib
+import inspect
 import json
 import os
 import sys
@@ -30,6 +31,10 @@ MAX_MAP_CELLS = 10_000
 MAX_INPUT_GRID_CELLS = 25_000
 MAX_INPUT_MONTHS = 600
 PIXEL_CHUNK_SIZE = 512
+# The cluster-size rule opposite_trends applies when called with its defaults (as seed_maps does); recorded in each
+# map so the API can report the minimum that was used. Read from the engine, never restated here.
+OPPOSITE_RULE = {name: param.default for name, param in inspect.signature(opposite_trends).parameters.items()
+                 if name in ("min_cells", "min_fraction")}
 MONTH_NAMES = ("January", "February", "March", "April", "May", "June",
                "July", "August", "September", "October", "November", "December")
 
@@ -307,8 +312,7 @@ def seed_maps(q: float = 0.10, max_cells: int = MAX_MAP_CELLS) -> dict[str, floa
                 "found": opposite["found"], "rising_share": opposite["rising_share"],
                 "falling_share": opposite["falling_share"], "divergence_score": opposite["divergence_score"],
                 "clusters": clusters,
-                "sentence": "The same variable is rising in some places and falling in others in this region."
-                if opposite["found"] else "No opposite trends found: significant changes here all point the same way, or there are none.",
+                **OPPOSITE_RULE,  # the API builds the counts and the plain-language sentence from these and the arrays
             },
         }
         output_path = out_dir / f"{path.stem}.json"
@@ -338,9 +342,13 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--series", action="append", metavar="STEM",
                         help="rebuild only this normalized series, e.g. modis_evi__kumasi (repeatable; maps are skipped)")
+    parser.add_argument("--maps", action="store_true", help="rebuild only the trend maps (series are skipped)")
     args = parser.parse_args(argv)
     if args.series:
         print(json.dumps({"series": seed_series(only=set(args.series))}, indent=2))
+        return
+    if args.maps:
+        print(json.dumps({"maps": seed_maps()}, indent=2))
         return
     overall_start = time.perf_counter()
     series = seed_series()
