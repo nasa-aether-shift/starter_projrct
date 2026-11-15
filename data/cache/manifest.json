@@ -5248,5 +5248,31 @@
     "max_map_cells": 10000,
     "downsample_step": 1,
     "fdr_level": 0.1
+  },
+  "modis_ndvi__kumasi": {
+    "source": "https://appeears.earthdatacloud.nasa.gov/",
+    "file": "data/raw/MOD13A3-061-Statistics.csv",
+    "input_file_name": "MOD13A3-061-Statistics.csv",
+    "cache_file": "data/cache/results/modis_ndvi__kumasi.json",
+    "dataset_version": "061",
+    "sha256": "6ff3503f43714bde8dbbd7aa57c1ed00a75e613a9238ce00604f4765db04701f",
+    "retrieved": "2026-11-15T11:26:30+00:00",
+    "retrieval_date": "2026-11-15",
+    "code_version": "0.1.0",
+    "units": "index",
+    "output_units": "index",
+    "processing_steps": [
+      "Extracted 1 km monthly vegetation index (MOD13A3.061) area statistics for Kumasi box via AppEEARS.",
+      "Extracted monthly mean over Kumasi polygon (-1.80, 6.55 to -1.45, 6.85)."
+    ],
+    "n_months": 295,
+    "source_urls": [
+      "https://appeears.earthdatacloud.nasa.gov/"
+    ],
+    "ingest_code_version": "0.1.0",
+    "normalized_file": "data/raw/modis_ndvi__kumasi.csv",
+    "normalized_file_sha256": "198a45d3b74d0215cc6b1ab6dda69049d670c909cdca07875d9266e84b8bc929",
+    "cache_sha256": "b03f9c0f1f8521eb1dd6550edfeb3d70bfe3ebead229c4cdb3e6e705d8354128",
+    "seed_horizon_sims": 1000
   }
 }

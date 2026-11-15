@@ -6,7 +6,7 @@ Check each dataset in NASA's CMR (https://cmr.earthdata.nasa.gov) or Earthdata S
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | merra2_t2m | M2TMNXSLV | M2TMNXSLV 5.12.4 | 5.12.4 | T2M (2 m air temperature) | K | Kumasi series 2005-01 to 2025-12; collection 1980-01 to 2025-12 (552 monthly granules in CMR) | Giovanni area-averaged export (Kumasi); Earthdata cloud OPeNDAP subset (West Africa grid) | Backend team / 2026-11-14 |
 | gpm_precip | GPM_3IMERGM | GPM_3IMERGM | 07 | precipitation (`/Grid/precipitation`, dimensions time, lon, lat) | mm/hr | 2000-06 to 2025-09 (304 monthly granules in CMR on 2026-11-14; later Final Run months not yet published) | Earthdata cloud OPeNDAP subset (West Africa grid) | Backend / 2026-11-14 |
-| modis_ndvi | MOD13C2 | | | | | | | |
+| modis_ndvi | MOD13C2 | MOD13A3 / MOD13C2 | 061 | 1 km monthly vegetation index | index | Kumasi series 2000-02 to 2026-10 (295 monthly records) | NASA AppEEARS area statistics export (Kumasi polygon: -1.80, 6.55 to -1.45, 6.85) | Team / 2026-11-15 |
 | (SHOULD) modis_lst | MOD11C3 | | | | | | | |
 | (SHOULD) omi_no2 | OMNO2d | | | | | | | |
 | fallback | NASA POWER T2M / PRECTOTCORR | | n/a | | | | | |
