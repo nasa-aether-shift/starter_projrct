@@ -97,7 +97,7 @@ export function KumasiCase() {
   const caveats = [...(tempVar?.caveats ?? []), ...(rainVar?.caveats ?? [])];
 
   return (
-    <article className="mx-auto flex w-full max-w-5xl flex-col px-4 pt-12 pb-24 sm:px-6">
+    <article className="mx-auto flex w-full max-w-5xl flex-col px-4 pt-8 pb-14 sm:px-6">
       <header className="flex flex-col gap-4 pb-12">
         <p className="text-sm font-semibold tracking-[0.2em] text-primary uppercase">{t("case.kicker")}</p>
         <h1 className="text-4xl font-bold text-balance sm:text-6xl">{t("case.title")}</h1>

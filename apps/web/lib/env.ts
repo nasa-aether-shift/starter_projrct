@@ -8,6 +8,8 @@ export const env = {
   globeMode: (process.env.NEXT_PUBLIC_GLOBE_MODE === "static" ? "static" : "cesium") as GlobeMode,
   cesiumIonToken: process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN ?? "",
   globeHdr: process.env.NEXT_PUBLIC_GLOBE_HDR === "1",
+  /** Voice / typed commands in the header (default on; NEXT_PUBLIC_VOICE=0 hides them). */
+  voice: process.env.NEXT_PUBLIC_VOICE !== "0",
   /** Ask the browser for the visitor's location and focus the globe on it (default on). */
   autoLocate: process.env.NEXT_PUBLIC_AUTO_LOCATE !== "0",
   /** Offer drawn-box regions (default off: POST /trend does not accept a bbox yet). */

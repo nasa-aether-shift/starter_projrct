@@ -11,7 +11,7 @@ export default function AnalysisPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">
           <LoadingState label="Loading the analysis…" lines={5} />
         </div>
       }

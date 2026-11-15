@@ -4,6 +4,7 @@ import { env } from "@/lib/env";
 
 import { ApiError, toProblem } from "./errors";
 import { fixtureCsv, fixtureJson } from "./fixtures";
+import { logApi } from "./log";
 
 const TIMEOUT_MS = 20_000;
 
@@ -45,11 +46,39 @@ async function request(method: "GET" | "POST", path: string, body?: unknown, sig
   }
 }
 
+/** Fetches JSON (or answers from fixtures) and logs the call in development (lib/api/log.ts). */
+async function fetchJson(method: "GET" | "POST", path: string, body: unknown, signal?: AbortSignal): Promise<unknown> {
+  const source = env.useFixtures ? "FIXTURE" : "API";
+  const t0 = performance.now();
+  try {
+    let status = 200;
+    let data: unknown;
+    if (env.useFixtures) data = await fixtureJson(method, path, body);
+    else {
+      const res = await request(method, path, body, signal);
+      status = res.status;
+      data = await res.json();
+    }
+    logApi({ source, method, path, status, ms: performance.now() - t0, body, data });
+    return data;
+  } catch (err) {
+    // A cancelled request (navigation, React's dev double-mount) is not worth a log line.
+    if (!(err instanceof DOMException && err.name === "AbortError"))
+      logApi({
+        source,
+        method,
+        path,
+        status: err instanceof ApiError ? err.status || "error" : "error",
+        ms: performance.now() - t0,
+        body,
+        error: err,
+      });
+    throw err;
+  }
+}
+
 export async function apiGet<S extends z.ZodType>(path: string, schema: S, signal?: AbortSignal): Promise<z.infer<S>> {
-  const data = env.useFixtures
-    ? await fixtureJson("GET", path)
-    : await (await request("GET", path, undefined, signal)).json();
-  return parse(schema, data, path);
+  return parse(schema, await fetchJson("GET", path, undefined, signal), path);
 }
 
 export async function apiPost<S extends z.ZodType>(
@@ -58,10 +87,7 @@ export async function apiPost<S extends z.ZodType>(
   schema: S,
   signal?: AbortSignal,
 ): Promise<z.infer<S>> {
-  const data = env.useFixtures
-    ? await fixtureJson("POST", path, body)
-    : await (await request("POST", path, body, signal)).json();
-  return parse(schema, data, path);
+  return parse(schema, await fetchJson("POST", path, body, signal), path);
 }
 
 /** Downloads the run CSV and saves it in the browser. */

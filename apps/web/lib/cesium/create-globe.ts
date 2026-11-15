@@ -21,6 +21,8 @@ export interface GlobeHandle {
   setSpin: (on: boolean) => void;
   /** Cap the render rate, e.g. while the space intro plays over the globe; undefined = the display's rate. */
   setFrameRate: (fps: number | undefined) => void;
+  /** Count as user input: pauses the idle spin for a few seconds (e.g. during a voice zoom). */
+  holdSpin: () => void;
   destroy: () => void;
 }
 
@@ -136,6 +138,7 @@ export function createGlobe(Cesium: CesiumModule, container: HTMLElement, opts: 
     viewer,
     Cesium,
     overlayIndex,
+    holdSpin: onInput,
     setSpin: (on) => {
       spinOn = on && !prefersReducedMotion();
     },

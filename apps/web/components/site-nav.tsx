@@ -7,7 +7,6 @@ export const NAV = [
   { href: "/explore", label: "Explore" },
   { href: "/investigate", label: "Investigate" },
   { href: "/cases/kumasi", label: "Kumasi case" },
-  { href: "/method", label: "Method" },
   { href: "/data-resources", label: "NASA data & resources" },
 ] as const;
 

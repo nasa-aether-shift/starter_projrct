@@ -1,7 +1,9 @@
 // Camera and motion settings for the globe. Heights are metres above the ellipsoid.
 
 /** Centred south of the Sahel so West Africa (and its trend map) sits in the upper half, clear of the map card. */
-export const START_VIEW = { lon: 6, lat: -4, height: 26_000_000 } as const;
+// 36,000 km keeps the whole Earth comfortably inside the hero (it was 26,000 km: too big on the landing page).
+// The space intro (lib/intro/create-intro.ts) ends on this view, so both stay in step.
+export const START_VIEW = { lon: 6, lat: -4, height: 36_000_000 } as const;
 export const GHANA_VIEW = { lon: -1.2, lat: 7.9, height: 600_000, pitchDeg: -45, durationS: 3 } as const;
 export const KUMASI_VIEW = { lon: -1.62, lat: 6.69, height: 30_000, pitchDeg: -45, durationS: 3 } as const;
 

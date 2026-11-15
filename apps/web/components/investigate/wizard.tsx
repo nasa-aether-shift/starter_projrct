@@ -162,7 +162,7 @@ export function Wizard() {
     (step === 4 && startYear <= endYear);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-5 sm:px-6">
       <nav aria-label="Investigation steps">
         <ol className="flex flex-wrap gap-2">
           {STEPS.map((label, i) => {

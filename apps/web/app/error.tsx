@@ -13,7 +13,7 @@ export default function Error({ error, retry }: { error: unknown; retry: () => v
   }, [error]);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-start justify-center gap-5 px-4 py-16 sm:px-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-start justify-center gap-5 px-4 py-10 sm:px-6">
       <AlertTriangle aria-hidden className="size-10 text-warning" />
       <h1 className="text-3xl font-bold sm:text-4xl">Something went wrong on this page</h1>
       <p className="text-lg text-muted-foreground">

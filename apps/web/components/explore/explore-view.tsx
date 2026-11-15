@@ -26,6 +26,7 @@ import { onGlobeClick, startBoxDraw } from "@/lib/cesium/interaction";
 import { env } from "@/lib/env";
 import { useBoundaries } from "@/lib/geo/boundaries";
 import { useUserLocation } from "@/lib/geo/use-user-location";
+import { voiceBus, type ExploreCommand } from "@/lib/voice/bus";
 import { MAP_REGION, formatBox, writeRegion, type BBox, type RegionChoice } from "@/lib/region";
 
 import { ResultsPanel, type PanelState } from "./results-panel";
@@ -246,7 +247,55 @@ export function ExploreView() {
     if (isAlive(globe)) void flyHome(globe);
   };
 
+  // ---- voice commands (components/voice/voice-control.tsx) ----
+  const voiceRef = useRef<(cmd: ExploreCommand) => void>(() => {});
+  useEffect(() => {
+    voiceRef.current = (cmd) => {
+      if (cmd.kind === "reset") {
+        const params = new URLSearchParams(search.toString());
+        params.delete("place");
+        router.replace(`${pathname}${params.size ? `?${params.toString()}` : ""}`, { scroll: false });
+        return backToGlobe();
+      }
+      if (cmd.kind === "locate") {
+        if (here.status === "ok") goToMe();
+        else setNotice("Your location isn't available. Allow location access in the browser, then try again.");
+        return;
+      }
+      const v: MapVariableId = cmd.variable ?? variable;
+      if (cmd.variable || cmd.place) {
+        // Keep the address in step with what is shown, so it can be copied and shared.
+        const params = new URLSearchParams(search.toString());
+        if (cmd.variable) params.set("variable", cmd.variable);
+        if (cmd.place) params.set("place", cmd.place);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      }
+      const place = cmd.place ? PLACES.find((p) => p.id === cmd.place) : undefined;
+      if (place) {
+        if (isAlive(globe)) void flyTo(globe, placeView(place), { offsetPx: panelOffsetPx() });
+        const sel: Selection = { kind: "preset", id: place.id, label: place.label };
+        setSelection(sel);
+        analyse(sel, v);
+      } else if (cmd.variable && selection) analyse(selection, v);
+    };
+  });
+  useEffect(() => voiceBus.onExploreCommand((cmd) => voiceRef.current(cmd)), []);
+
   const active = selection?.kind === "point" ? point : trend;
+
+  // Tell voice how each analysis turned out, so a spoken question gets the verdict read back (the API's own
+  // sentences) or the reason it could not be answered.
+  const reported = useRef<unknown>(null);
+  useEffect(() => {
+    if (active.data && reported.current !== active.data) {
+      reported.current = active.data;
+      const v = active.data.verdict;
+      voiceBus.reportOutcome({ ok: true, sentences: [v.what, v.where, v.how_much, v.significant] });
+    } else if (active.error && reported.current !== active.error) {
+      reported.current = active.error;
+      voiceBus.reportOutcome({ ok: false, message: active.error.message });
+    }
+  }, [active.data, active.error]);
   const regionChoice: RegionChoice | null =
     selection?.kind === "preset"
       ? { kind: "preset", id: selection.id }
